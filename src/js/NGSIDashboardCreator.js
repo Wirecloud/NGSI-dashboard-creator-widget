@@ -63,6 +63,7 @@ window.Widget = (function () {
             "NO2"
         ]
     };
+    var TENDENCY_TYPES = ["Max", "Min", "Mean", "Count", "Sum"];
 
     var getVariableSelectorEntries = function getVariableSelectorEntries(type) {
         var options = [];
@@ -94,6 +95,7 @@ window.Widget = (function () {
         div.classList.add("component");
         component.div = div;
 
+        // Type selector
         var typeDiv = document.createElement('div');
         var typeTitle = new StyledElements.Fragment("<h4> Component type </h4>");
         // TODO: add more types
@@ -104,6 +106,7 @@ window.Widget = (function () {
         typeTitle.insertInto(typeDiv);
         component.typeSelector.insertInto(typeDiv);
 
+        // Target variable selector
         var variable1Div = document.createElement('div');
         var variable1Title = new StyledElements.Fragment("<h4> Target variable </h4>");
         var options = getVariableSelectorEntries();
@@ -113,15 +116,13 @@ window.Widget = (function () {
         variable1Title.insertInto(variable1Div);
         component.variableSelector1.insertInto(variable1Div);
 
+        // Extra variable selector
         var variable2Div = document.createElement('div');
-        var variable2Title = new StyledElements.Fragment("<h4> Extra target variable </h4>");
-        component.variableSelector2 = new StyledElements.Select({});
-
+        var variable2Title = new StyledElements.Fragment("<h4> Tendency selector </h4>");
+        component.variableSelector2 = new StyledElements.Select({initialEntries: TENDENCY_TYPES, initialValue: TENDENCY_TYPES[0]});
         div.appendChild(variable2Div);
         variable2Title.insertInto(variable2Div);
         component.variableSelector2.insertInto(variable2Div);
-        // This selector is disabled by default
-        variable2Div.classList.add("hidden");
 
         var sourceDiv = document.createElement('div');
         var sourceTitle = new StyledElements.Fragment("<h4> Data scope </h4>");
@@ -170,18 +171,24 @@ window.Widget = (function () {
         }
         this.variableSelector1.clear();
 
+        if (this.variableSelector2.value !== undefined) {
+            this.variableSelector2.oldValue = this.variableSelector2.value;
+        }
+        this.variableSelector2.clear();
+
         // Get new entries
         var entries = getVariableSelectorEntries();
         this.variableSelector1.addEntries(entries);
+        this.variableSelector2.addEntries(TENDENCY_TYPES);
 
         // Restore previous values
         this.variableSelector1.setValue(this.variableSelector1.oldValue);
+        this.variableSelector2.setValue(this.variableSelector2.oldValue);
 
         // Enable needed selectors
         this.variableSelector1.wrapperElement.parentElement.classList.remove("hidden");
+        this.variableSelector2.wrapperElement.parentElement.classList.remove("hidden");
         this.sourceSelector.wrapperElement.parentElement.classList.remove("hidden");
-        // Disable unneeded selectors
-        this.variableSelector2.wrapperElement.parentElement.classList.add("hidden");
     };
 
     var configureHeatmapType = function configureHeatmapType() {
@@ -197,6 +204,7 @@ window.Widget = (function () {
             this.variableSelector1.oldValue = this.variableSelector1.value;
         }
         this.variableSelector1.clear();
+
         if (this.variableSelector2.value !== undefined) {
             this.variableSelector2.oldValue = this.variableSelector2.value;
         }
