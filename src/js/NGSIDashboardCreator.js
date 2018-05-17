@@ -227,10 +227,48 @@ window.Widget = (function () {
     };
 
     // Add the selected extra components to the dashboard
-    var configureDashboard = function configureDashboard(workspaceID) {
-        // TODO
+    var configureDashboard = function configureDashboard(workspace) {
+        // Get workspace initial components IDs
+        var tabID = workspace.tabs[0].id;
+        var mapWidgetID = workspace.tabs[0].iwidgets[0].id;
+
+        // TODO: add missing types
+        this.components.forEach(function (component) {
+            var type = component.typeSelector.value;
+            // var variables = [component.variableSelector1.value, component.variableSelector2.value];
+            if (type === "Heatmap") {
+                configureHeatmap(workspaceID, mapWidgetID);
+            }
+        });
     };
 
+    // Add a heatmap to the dashboard
+    var configureHeatmap = function configureHeatmap(dashboardID, mapWidgetID){
+        // Create the heatmap operator
+        createOperator(dashboardID, "CoNWeT/ngsi-datamodel2heatmap/0.1.0").then(function (operatorID) {
+            // Connect heatmap operator to its source
+            var sourceEndpoint = {
+                id: 1,
+                type: "operator",
+                endpoint: "plain"
+            };
+            var operatorEndpoint = {
+                id: operatorID,
+                type: "operator",
+                endpoint: "input"
+            };
+            createConnection(dashboardID, sourceEndpoint, operatorEndpoint);
+
+            // Connect heatmap output to the map widget
+            operatorEndpoint.endpoint = "leafletheatmapLayer";
+            var targetEndpoint = {
+                id: mapWidgetID,
+                type: "widget",
+                endpoint: "heatmap"
+            };
+            createConnection(dashboardID, operatorEndpoint, targetEndpoint);
+        });
+    };
 
     /*
         HELPER FUNCTIONS
