@@ -237,13 +237,13 @@ window.Widget = (function () {
             var type = component.typeSelector.value;
             // var variables = [component.variableSelector1.value, component.variableSelector2.value];
             if (type === "Heatmap") {
-                configureHeatmap(workspaceID, mapWidgetID);
+                createHeatmapComponent(workspaceID, mapWidgetID);
             }
         });
     };
 
     // Add a heatmap to the dashboard
-    var configureHeatmap = function configureHeatmap(dashboardID, mapWidgetID){
+    var createHeatmapComponent = function createHeatmapComponent(dashboardID, mapWidgetID){
         // Create the heatmap operator
         createOperator(dashboardID, "CoNWeT/ngsi-datamodel2heatmap/0.1.0").then(function (operatorID) {
             // Connect heatmap operator to its source
