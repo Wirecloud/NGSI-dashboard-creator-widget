@@ -1,0 +1,17 @@
+#components {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.component {
+    margin: 5px;
+    border-width: 5px;
+    padding: 5px;
+    justify-content: space-around;
+    box-shadow: 0 1.5px 4px rgba(0, 0, 0, 0.24), 0 1.5px 6px rgba(0, 0, 0, 0.12);
+}
+
+.recommended-option {
+    background: #fabadaFF;
+}

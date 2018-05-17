@@ -25,6 +25,7 @@
     </preferences>
 
     <wiring>
+        <inputendpoint name="dataset" type="text" label="Data and Structure" description="A JSON with two fields: structure (for the structure of the data) and data (the data ifself)" actionlabel="Data and Structure" friendcode="dataset"/>
     </wiring>
 
     <contents src="index.html" useplatformstyle="true"/>
