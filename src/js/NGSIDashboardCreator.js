@@ -17,7 +17,6 @@ window.Widget = (function () {
         this.components = [];
     };
 
-
     Widget.prototype.init = function init() {
 
         // TODO: Display a waiting for data or smth
@@ -65,7 +64,7 @@ window.Widget = (function () {
         ]
     };
 
-    var getVariableSelectorEntries = function getVariableSelectorEntries() {
+    var getVariableSelectorEntries = function getVariableSelectorEntries(type) {
         var options = [];
         // TODO use this.model to recommend options
 
@@ -75,8 +74,7 @@ window.Widget = (function () {
                 return;
             }
 
-            // TODO: Lookup for categorical entries
-            if (entry.type === "number") {
+            if ((!type && entry.type === "number") || (type && entry.type === "string")) {
                 options.push(entry.id);
             }
         });
@@ -124,9 +122,6 @@ window.Widget = (function () {
         component.variableSelector2.insertInto(variable2Div);
         // This selector is disabled by default
         variable2Div.classList.add("hidden");
-
-        // This changes content depending on type selected (?)
-        // var variableSelector2 = ;
 
         var sourceDiv = document.createElement('div');
         var sourceTitle = new StyledElements.Fragment("<h4> Data scope </h4>");
