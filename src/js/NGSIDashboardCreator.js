@@ -308,7 +308,7 @@ window.Widget = (function () {
         });
     };
 
-    var operatorCount = 2; // Initial operator count for the base NGSI dashboard
+    var operatorCount = 3; // Initial operator count for the base NGSI dashboard (2 operators and IDs start on 1)
     var createOperator = function createOperator(workspaceID, operator, preferences, properties) {
         var op = {
             'name': operator,
