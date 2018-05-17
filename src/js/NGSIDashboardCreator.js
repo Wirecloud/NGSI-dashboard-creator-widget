@@ -327,7 +327,7 @@ window.Widget = (function () {
         });
     };
 
-    var addWidgetPreferences = function addWidgetPreferences(workspaceID, tabID, widgetID, preferences) {
+    var addWidgetPreferences = function addWidgetPreferences(workspaceID, tabID, widgetID, preferences = {}) {
         var data = preferences;
 
         return new Promise(function (fulfill, reject) {
@@ -347,7 +347,7 @@ window.Widget = (function () {
     };
 
     var operatorCount = 3; // Initial operator count for the base NGSI dashboard (2 operators and IDs start on 1)
-    var createOperator = function createOperator(workspaceID, operator, preferences, properties) {
+    var createOperator = function createOperator(workspaceID, operator, preferences = {}, properties = {}) {
         var op = {
             'name': operator,
             'preferences': preferences,
