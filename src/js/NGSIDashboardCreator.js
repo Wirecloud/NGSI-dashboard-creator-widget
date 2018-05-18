@@ -63,7 +63,7 @@ window.Widget = (function () {
             "NO2"
         ]
     };
-    var TENDENCY_TYPES = ["Max", "Min", "Mean", "Count", "Sum"];
+    var TENDENCY_TYPES = [["maximum", "Max"], ["minimum", "Min"], ["arithmetic-mean", "Mean"], ["count", "Count"], ["sum", "Sum"]];
 
     var getVariableSelectorEntries = function getVariableSelectorEntries(type) {
         var options = [];
@@ -119,7 +119,7 @@ window.Widget = (function () {
         // Extra variable selector
         var variable2Div = document.createElement('div');
         var variable2Title = new StyledElements.Fragment("<h4> Tendency selector </h4>");
-        component.variableSelector2 = new StyledElements.Select({initialEntries: TENDENCY_TYPES, initialValue: TENDENCY_TYPES[0]});
+        component.variableSelector2 = new StyledElements.Select({initialEntries: TENDENCY_TYPES});
         div.appendChild(variable2Div);
         variable2Title.insertInto(variable2Div);
         component.variableSelector2.insertInto(variable2Div);
