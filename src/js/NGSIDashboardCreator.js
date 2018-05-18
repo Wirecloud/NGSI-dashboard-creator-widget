@@ -229,7 +229,7 @@ window.Widget = (function () {
     var createDashboard = function createDashboard() {
         // TODO: handle empty name
         var name = this.nameField.value;
-        createWorkspace(name, 'CoNWeT/baseNGSImashup/0.1.0', {}).then(configureDashboard, function () {
+        createWorkspace(name, "CoNWeT/basengsimashup/0.1.0", {}).then(configureDashboard.bind(this), function () {
             MashupPlatform.widget.log("Could not create the workspace", MashupPlatform.log.ERROR);
         });
     };
@@ -245,13 +245,13 @@ window.Widget = (function () {
             var type = component.typeSelector.value;
             // var variables = [component.variableSelector1.value, component.variableSelector2.value];
             if (type === "Heatmap") {
-                createHeatmapComponent(workspaceID, mapWidgetID);
+                createHeatmapComponent(workspace.id, mapWidgetID);
             }
         });
     };
 
     // Add a heatmap to the dashboard
-    var createHeatmapComponent = function createHeatmapComponent(dashboardID, mapWidgetID){
+    var createHeatmapComponent = function createHeatmapComponent(dashboardID, mapWidgetID) {
         // Create the heatmap operator
         createOperator(dashboardID, "CoNWeT/ngsi-datamodel2heatmap/0.1.0").then(function (operatorID) {
             // Connect heatmap operator to its source
@@ -265,16 +265,16 @@ window.Widget = (function () {
                 type: "operator",
                 endpoint: "input"
             };
-            createConnection(dashboardID, sourceEndpoint, operatorEndpoint);
-
-            // Connect heatmap output to the map widget
-            operatorEndpoint.endpoint = "leafletheatmapLayer";
-            var targetEndpoint = {
-                id: mapWidgetID,
-                type: "widget",
-                endpoint: "heatmap"
-            };
-            createConnection(dashboardID, operatorEndpoint, targetEndpoint);
+            createConnection(dashboardID, sourceEndpoint, operatorEndpoint).then(function () {
+                // Connect heatmap output to the map widget
+                operatorEndpoint.endpoint = "leafletheatmapLayer";
+                var targetEndpoint = {
+                    id: mapWidgetID,
+                    type: "widget",
+                    endpoint: "heatmap"
+                };
+                createConnection(dashboardID, operatorEndpoint, targetEndpoint);
+            });
         });
     };
 
@@ -335,8 +335,8 @@ window.Widget = (function () {
         });
     };
 
-    var addWidgetPreferences = function addWidgetPreferences(workspaceID, tabID, widgetID, preferences = {}) {
-        var data = preferences;
+    var addWidgetPreferences = function addWidgetPreferences(workspaceID, tabID, widgetID, preferences) {
+        var data = preferences ? preferences : {};
 
         return new Promise(function (fulfill, reject) {
             MashupPlatform.http.makeRequest("http://127.0.0.1:8000/api/workspace/" + workspaceID + "/tab/" + tabID + "/iwidgets/" + widgetID + "/preferences", {
@@ -355,11 +355,11 @@ window.Widget = (function () {
     };
 
     var operatorCount = 3; // Initial operator count for the base NGSI dashboard (2 operators and IDs start on 1)
-    var createOperator = function createOperator(workspaceID, operator, preferences = {}, properties = {}) {
+    var createOperator = function createOperator(workspaceID, operator, preferences, properties) {
         var op = {
             'name': operator,
-            'preferences': preferences,
-            'properties': properties
+            'preferences': preferences ? preferences : {},
+            'properties': properties ? properties : {}
         };
 
         var operatorID = operatorCount++;
@@ -385,17 +385,15 @@ window.Widget = (function () {
         });
     };
 
-    var connectionCount = 2; // Initial connection count for the base NGSI dashboard
     var createConnection = function createConnection(workspaceID, source, target) {
         var connection = {
             source: source,
             target: target
         };
 
-        var connectionID = connectionCount++;
         var data = [{
             'op': "add",
-            'path': "/connections/" + connectionID,
+            'path': "/connections/1",
             'value': connection
         }];
 
