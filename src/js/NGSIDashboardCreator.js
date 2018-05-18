@@ -252,29 +252,118 @@ window.Widget = (function () {
 
     // Add a heatmap to the dashboard
     var createHeatmapComponent = function createHeatmapComponent(dashboardID, mapWidgetID) {
-        // Create the heatmap operator
-        createOperator(dashboardID, "CoNWeT/ngsi-datamodel2heatmap/0.1.0").then(function (operatorID) {
-            // Connect heatmap operator to its source
-            var sourceEndpoint = {
-                id: 1,
-                type: "operator",
-                endpoint: "plain"
-            };
-            var operatorEndpoint = {
-                id: operatorID,
-                type: "operator",
-                endpoint: "input"
-            };
-            createConnection(dashboardID, sourceEndpoint, operatorEndpoint).then(function () {
-                // Connect heatmap output to the map widget
-                operatorEndpoint.endpoint = "leafletheatmapLayer";
-                var targetEndpoint = {
-                    id: mapWidgetID,
-                    type: "widget",
-                    endpoint: "heatmap"
+        return new Promise(function (fulfill, reject) {
+            // Create the heatmap operator
+            createOperator(dashboardID, "CoNWeT/ngsi-datamodel2heatmap/0.1.0").then(function (operatorID) {
+                // Connect heatmap operator to its source
+                var sourceEndpoint = {
+                    id: 1,
+                    type: "operator",
+                    endpoint: "plain"
                 };
-                createConnection(dashboardID, operatorEndpoint, targetEndpoint);
+                var operatorEndpoint = {
+                    id: operatorID,
+                    type: "operator",
+                    endpoint: "input"
+                };
+                createConnection(dashboardID, sourceEndpoint, operatorEndpoint).then(function () {
+                    // Connect heatmap output to the map widget
+                    operatorEndpoint.endpoint = "leafletheatmapLayer";
+                    var targetEndpoint = {
+                        id: mapWidgetID,
+                        type: "widget",
+                        endpoint: "heatmap"
+                    };
+                    createConnection(dashboardID, operatorEndpoint, targetEndpoint).then(fulfill(true));
+                });
             });
+        });
+    };
+
+    var createTendencyComponent = function createTendencyComponent(dashboardID, mapWidgetID, tabID, variable, tendencyType, source) {
+        return new Promise(function (fulfill, reject) {
+            // Create wirecloud components
+            var filterBy;
+            if (source === "All") {
+                filterBy = variable;
+            } else {
+                filterBy = "data." + variable;
+            }
+            var prop_name = {
+                hidden: false,
+                readonly: false,
+                value: filterBy
+            };
+            var values = [];
+            var createFilter = function createFilter() {
+                return createOperator(dashboardID, "CoNWeT/value-list-filter/0.1.0", {prop_name: prop_name});
+            };
+            var createTendency = function createTendency(id) {
+                values.push(id);
+                return createOperator(dashboardID, "CoNWeT/calculate-tendency/0.3.1");
+            };
+            var createPanel = function createPanel(id) {
+                values.push(id);
+                return createWidget(dashboardID, tabID, "CoNWeT/panel/1.0.3");
+            };
+
+            createFilter().then(createTendency).then(createPanel).then(function (id) {
+                values.push(id);
+                createComponentConnections(values);
+            });
+
+            var createComponentConnections = function createComponentConnections(values) {
+                // Connect the wirecloud component
+                var sourceEndpoint, targetEndpoint;
+                // Connect source to filter operator
+                if (source === "All") {
+                    sourceEndpoint = {
+                        id: 1,
+                        type: "operator",
+                        endpoint: "plain"
+                    };
+                } else {
+                    sourceEndpoint = {
+                        id: mapWidgetID,
+                        type: "widget",
+                        endpoint: "poiListOutput"
+                    };
+                }
+                targetEndpoint = {
+                    id: values[0],
+                    type: "operator",
+                    endpoint: "indata"
+                };
+                createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                    // connect filter operator to tendency operator
+                    sourceEndpoint = {
+                        id: values[0],
+                        type: "operator",
+                        endpoint: "outdata"
+                    };
+
+                    targetEndpoint = {
+                        id: values[1],
+                        type: "operator",
+                        endpoint: "value-list"
+                    };
+                    createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                        // Connect tendency operator to panel widget
+                        sourceEndpoint = {
+                            id: values[1],
+                            type: "operator",
+                            endpoint: tendencyType
+                        };
+
+                        targetEndpoint = {
+                            id: values[2],
+                            type: "widget",
+                            endpoint: "textinput"
+                        };
+                        createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(fulfill(true));
+                    });
+                });
+            };
         });
     };
 
