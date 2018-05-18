@@ -309,13 +309,13 @@ window.Widget = (function () {
 
     var createWidget = function createWidget(workspaceID, tabID, widget, config) {
         var data = {
-            widget: widget
+            widget: widget,
             // height:
             // width:
-            // commit: true ?
+            commit: true,
             // left: ?
             // top: ?
-            // layout: 0 ?
+            layout: 0
         };
 
         return new Promise(function (fulfill, reject) {
