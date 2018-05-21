@@ -239,15 +239,26 @@ window.Widget = (function () {
         // Get workspace initial components IDs
         var tabID = workspace.tabs[0].id;
         var mapWidgetID = workspace.tabs[0].iwidgets[0].id;
+        var i = 0;
+        var componentList = this.components;
 
         // TODO: add missing types
-        this.components.forEach(function (component) {
-            var type = component.typeSelector.value;
-            // var variables = [component.variableSelector1.value, component.variableSelector2.value];
-            if (type === "Heatmap") {
-                createHeatmapComponent(workspace.id, mapWidgetID);
+        // Cant run parallel component creation in case the wirecloud instance is using the sqlite3 engine
+        var configureNextComponent = function configureNextComponent() {
+            if (componentList.length <= i) {
+                return;
             }
-        });
+
+            var component = componentList[i++];
+            var type = component.typeSelector.value;
+            if (type === "Heatmap") {
+                createHeatmapComponent(workspace.id, mapWidgetID).then(configureNextComponent);
+            } else if (type === "Variable tendency") {
+                createTendencyComponent(workspace.id, mapWidgetID, tabID, component.variableSelector1.value, component.variableSelector2.value, component.sourceSelector.value).then(configureNextComponent);
+            }
+        };
+
+        configureNextComponent(this.components, 0, workspace, tabID, mapWidgetID);
     };
 
     // Add a heatmap to the dashboard
