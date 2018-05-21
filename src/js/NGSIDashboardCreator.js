@@ -274,7 +274,9 @@ window.Widget = (function () {
                         type: "widget",
                         endpoint: "heatmap"
                     };
-                    createConnection(dashboardID, operatorEndpoint, targetEndpoint).then(fulfill(true));
+                    createConnection(dashboardID, operatorEndpoint, targetEndpoint).then(function () {
+                        fulfill(true);
+                    });
                 });
             });
         });
@@ -360,7 +362,9 @@ window.Widget = (function () {
                             type: "widget",
                             endpoint: "textinput"
                         };
-                        createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(fulfill(true));
+                        createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                            fulfill(true);
+                        });
                     });
                 });
             };
