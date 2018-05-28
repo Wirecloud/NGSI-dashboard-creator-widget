@@ -11,9 +11,9 @@
 window.Widget = (function () {
 
     "use strict";
-    var data;
+    var data, model;
     var Widget = function Widget() {
-        this.model = null;
+        model = null;
         this.components = [];
     };
 
@@ -32,7 +32,7 @@ window.Widget = (function () {
         // TODO: Remove waiting for data
 
         // Get datamodel
-        this.model = data.data[0].type;
+        model = data.data[0].type;
         // TODO: Check model is a FIWARE datamodel
 
         // Add create component & dashboard buttons
@@ -67,7 +67,6 @@ window.Widget = (function () {
 
     var getVariableSelectorEntries = function getVariableSelectorEntries(type) {
         var options = [];
-        // TODO use this.model to recommend options
 
         data.structure.forEach(function (entry) {
             // skip _id
@@ -79,12 +78,29 @@ window.Widget = (function () {
                 options.push(entry.id);
             }
         });
+        var recommend = datamodelOptionsInfo[model];
+        if (recommend) {
+            recommend.forEach(function (r) {
+                var i = options.indexOf(r);
+                if (i !== -1) {
+                    options.splice(i, 1);
+                }
+            });
+            options = recommend.concat(options);
+        }
 
         return options;
     };
 
+    var setRecommendedOptions = function setRecommendedOptions(selector, options) {
+        var o = selector.inputElement.childNodes;
+
+        for (var i = 0; i < options.length; i++) {
+            o[i].classList.add("recommended");
+        }
+    };
+
     // Create "chart" creation options
-    // TODO: dynamic selectors / options
     var nextId = 0;
     var createComponent = function createComponent() {
         var component = {id: nextId++};
@@ -109,8 +125,9 @@ window.Widget = (function () {
         // Target variable selector
         var variable1Div = document.createElement('div');
         var variable1Title = new StyledElements.Fragment("<h4> Target variable </h4>");
-        var options = getVariableSelectorEntries();
+        var options = getVariableSelectorEntries.call(this);
         component.variableSelector1 = new StyledElements.Select({initialEntries: options, initialValue: options[0]});
+        setRecommendedOptions(component.variableSelector1, datamodelOptionsInfo[model]);
         // TODO: add background to recommended values
         div.appendChild(variable1Div);
         variable1Title.insertInto(variable1Div);
@@ -177,8 +194,9 @@ window.Widget = (function () {
         this.variableSelector2.clear();
 
         // Get new entries
-        var entries = getVariableSelectorEntries();
+        var entries = getVariableSelectorEntries.call(this);
         this.variableSelector1.addEntries(entries);
+        setRecommendedOptions(this.variableSelector1, datamodelOptionsInfo[model]);
         this.variableSelector2.addEntries(TENDENCY_TYPES);
 
         // Restore previous values
@@ -211,7 +229,7 @@ window.Widget = (function () {
         this.variableSelector2.clear();
 
         // Get new entries
-        var entries = getVariableSelectorEntries();
+        var entries = getVariableSelectorEntries.call(this);
         this.variableSelector1.addEntries(entries);
         this.variableSelector2.addEntries(entries);
 
