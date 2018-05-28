@@ -254,6 +254,9 @@ window.Widget = (function () {
 
     // Add the selected extra components to the dashboard
     var configureDashboard = function configureDashboard(workspace) {
+        // Notify the parent element
+        window.top.postMessage(workspace.owner + "/" + workspace.name, "*");
+
         // Get workspace initial components IDs
         var tabID = workspace.tabs[0].id;
         var mapWidgetID = workspace.tabs[0].iwidgets[0].id;
