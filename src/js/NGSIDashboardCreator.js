@@ -63,6 +63,7 @@ window.Widget = (function () {
             "NO2"
         ]
     };
+
     var TENDENCY_TYPES = [["maximum", "Max"], ["minimum", "Min"], ["arithmetic-mean", "Mean"], ["count", "Count"], ["sum", "Sum"]];
 
     var getVariableSelectorEntries = function getVariableSelectorEntries(type) {
@@ -78,6 +79,8 @@ window.Widget = (function () {
                 options.push(entry.id);
             }
         });
+
+        // Sort recommended options to be first
         var recommend = datamodelOptionsInfo[model];
         if (recommend) {
             recommend.forEach(function (r) {
