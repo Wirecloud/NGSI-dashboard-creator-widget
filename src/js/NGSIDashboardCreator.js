@@ -151,11 +151,12 @@ window.Widget = (function () {
         if (recommend) {
             recommend.forEach(function (r) {
                 var i = options.indexOf(r);
+                // Remove the option from the list and append it first
                 if (i !== -1) {
                     options.splice(i, 1);
+                    options.unshift(r);
                 }
             });
-            options = recommend.concat(options);
         }
 
         return options;
