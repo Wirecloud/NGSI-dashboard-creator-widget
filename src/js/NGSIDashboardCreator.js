@@ -60,7 +60,73 @@ window.Widget = (function () {
     var datamodelOptionsInfo = {
         AirQualityObserved: [
             "CO",
-            "NO2"
+            "NO2",
+            "NO",
+            "NOx",
+            "SO",
+            "temperature",
+            "windSpeed"
+        ],
+        WaterQualityObserved: [
+            "temperature",
+            "pH",
+            "O2",
+            "NO3",
+            "salinity",
+            "conductivity",
+            "conductance",
+        ],
+        NoiseLevelObserved: [
+            "LAeq",
+            "LAmax",
+            "sonometerClass"
+        ],
+        Streetlight: [
+            "lanternHeight",
+            "illuminanceLevel",
+            "status",
+            "powerState"
+        ],
+        OffStreetParking: [
+            "totalSpotNumber",
+            "availableSpotNumber",
+            "priceRatePerMinute",
+            "status"
+        ],
+        OnStreetParking: [
+            "totalSpotNumber",
+            "availableSpotNumber",
+        ],
+        PointOfInterest: [
+            "category"
+        ],
+        WasteContainer: [
+           "fillingLevel",
+           "cargoWeight",
+           "temperature",
+           "storedWasteKind",
+           "status"
+        ],
+        Vehicle: [
+            "vehicleType",
+            "serviceStatus",
+            "category",
+            "speed",
+            "cargoWeight"
+        ],
+        Alert: [
+            "category",
+            "subCategory",
+            "severity"
+        ],
+        WeatherObserved: [
+            "precipitation",
+            "pressureTendency",
+            "relativeHumidity",
+            "temperature",
+            "windSpeed",
+            "weatherType",
+            "visibility",
         ]
     };
 
