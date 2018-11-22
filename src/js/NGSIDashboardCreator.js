@@ -11,7 +11,9 @@
 window.Widget = (function () {
 
     "use strict";
-    var data, model;
+    var metadata;
+    var dataStructure = {};
+    var model;
     var Widget = function Widget() {
         model = null;
         this.components = [];
@@ -20,19 +22,44 @@ window.Widget = (function () {
     Widget.prototype.init = function init() {
 
         // TODO: Display a waiting for data or smth
-        MashupPlatform.wiring.registerCallback('dataset', function (d) {
-            data = JSON.parse(d);
-            if (data) {
+        MashupPlatform.wiring.registerCallback('ngsimetadata', function (d) {
+            metadata = typeof(d) == "string" ? JSON.parse(d) : d;
+            if (metadata) {
+                // Launch a query to get few data on background
+                // Auth not possible if anonymous usage, by now
+                // TODO: Support authentication
+                var connOptions = {
+                    request_headers: {
+                        "Fiware-Service": metadata.tenant,
+                        "Fiware-ServicePath": metadata.servicePath
+                    }
+                };
+                var ngsi_connection = new NGSI.Connection(metadata.serverURL, connOptions);
+                var entityIdList = [
+                    {
+                        type: metadata.types,
+                        id: '.*',                // TODO: support metadata pattern received
+                        isPattern: true
+                    }
+                ];
+                var attributeList = metadata.filteredAttributes;;
+                var options = {
+                    flat: false,
+                    limit: 20,
+                    details: true,
+                    onSuccess: processSampleData.bind(this)
+                };
+                ngsi_connection.query(entityIdList, attributeList, options);
+
                 this.startWidget();
             }
         }.bind(this));
     };
 
     Widget.prototype.startWidget = function startWidget() {
-        // TODO: Remove waiting for data
-
         // Get datamodel
-        model = data.data[0].type;
+        // TODO: support multiple models
+        model = metadata.types[0];
         // TODO: Check model is a FIWARE datamodel
 
         // Add create component & dashboard buttons
@@ -101,11 +128,11 @@ window.Widget = (function () {
             "category"
         ],
         WasteContainer: [
-           "fillingLevel",
-           "cargoWeight",
-           "temperature",
-           "storedWasteKind",
-           "status"
+            "fillingLevel",
+            "cargoWeight",
+            "temperature",
+            "storedWasteKind",
+            "status"
         ],
         Vehicle: [
             "vehicleType",
@@ -132,19 +159,29 @@ window.Widget = (function () {
 
     var TENDENCY_TYPES = [["maximum", "Max"], ["minimum", "Min"], ["arithmetic-mean", "Mean"], ["count", "Count"], ["sum", "Sum"]];
 
-    var getVariableSelectorEntries = function getVariableSelectorEntries(type) {
+    var processSampleData = function processSampleData(data, details) {
+        // Received non-flat structure with further details
+        dataStructure = {}; // Supports multi-entities
+        var attrName;
+        for (var entity in data) {
+            for (var attribute in data[entity].attributes) {
+                if (typeof(dataStructure[data[entity].entity.type]) !== "object") {
+                    dataStructure[data[entity].entity.type] = {};
+                }
+                attrName = data[entity].attributes[attribute].name;
+                dataStructure[data[entity].entity.type][attrName] = data[entity].attributes[attribute].type; // Overwrites withour asking
+            }
+        }
+    }
+
+    var getVariableSelectorEntries = function getVariableSelectorEntries() {
+        // TODO: receive Entity on call and arrange on such model
         var options = [];
-
-        data.structure.forEach(function (entry) {
-            // skip _id
-            if (entry.id === "id" || entry.id === "_id") {
-                return;
+        for (var entityType in dataStructure) {
+            for (var entityAttribute in dataStructure[entityType]) {
+                options.push(entityAttribute) // Returns a flat list of all-entities attributes
             }
-
-            if ((!type && entry.type === "number") || (type && entry.type === "string")) {
-                options.push(entry.id);
-            }
-        });
+        }
 
         // Sort recommended options to be first
         var recommend = datamodelOptionsInfo[model];
@@ -191,6 +228,8 @@ window.Widget = (function () {
         div.appendChild(typeDiv);
         typeTitle.insertInto(typeDiv);
         component.typeSelector.insertInto(typeDiv);
+
+        // TODO: Entity-type selector
 
         // Target variable selector
         var variable1Div = document.createElement('div');
@@ -301,7 +340,7 @@ window.Widget = (function () {
         // Get new entries
         var entries = getVariableSelectorEntries.call(this);
         this.variableSelector1.addEntries(entries);
-        this.variableSelector2.addEntries(entries);
+        this.variableSelector2.addEntries(entries); // Replaces TENDENCY_TYPES
 
         // Restore previous values
         this.variableSelector1.setValue(this.variableSelector1.oldValue);
@@ -317,9 +356,13 @@ window.Widget = (function () {
     var createDashboard = function createDashboard() {
         // TODO: handle empty name
         var name = this.nameField.value;
-        createWorkspace(name, "CoNWeT/basengsimashup/0.1.0", {}).then(configureDashboard.bind(this), function () {
-            MashupPlatform.widget.log("Could not create the workspace", MashupPlatform.log.ERROR);
-        });
+        // TODO: remove the basengsimashup and use an empty one injecting the leaflet map
+        createWorkspace(name, "CoNWeT/basengsimashup/0.1.0", {}).then(
+            configureDashboard.bind(this),
+            function () {
+                MashupPlatform.widget.log("Could not create the workspace", MashupPlatform.log.ERROR);
+            }
+        );
     };
 
     // Add the selected extra components to the dashboard
@@ -329,7 +372,8 @@ window.Widget = (function () {
 
         // Get workspace initial components IDs
         var tabID = workspace.tabs[0].id;
-        var mapWidgetID = workspace.tabs[0].iwidgets[0].id;
+        var mapWidgetID = workspace.tabs[0].iwidgets[0].id; // Leaflet map is expected to be the 1st element
+        var sourceOperatorID = workspace.wiring.operators[1].id; // NGSI source is 1st element (starts on 1)
         var i = 0;
         var componentList = this.components;
 
@@ -346,10 +390,20 @@ window.Widget = (function () {
                 createHeatmapComponent(workspace.id, mapWidgetID).then(configureNextComponent);
             } else if (type === "Variable tendency") {
                 createTendencyComponent(workspace.id, mapWidgetID, tabID, component.variableSelector1.value, component.variableSelector2.value, component.sourceSelector.value).then(configureNextComponent);
-            }
+            } // TODO: missing "Scatter chart" type and createScatterComponent function
         };
 
         configureNextComponent(this.components, 0, workspace, tabID, mapWidgetID);
+
+        // After every component has been configured, NGSI source configuration is injected
+        configureSourceOperator(workspace.id, sourceOperatorID, metadata).then(
+            function () {
+                MashupPlatform.widget.log("Dashboard created successfully", MashupPlatform.log.INFO);
+            },
+            function () {
+                MashupPlatform.widget.log("Could not set NGSI-source-opperator properties", MashupPlatform.log.ERROR);
+            }
+        );
     };
 
     // Add a heatmap to the dashboard
@@ -359,7 +413,7 @@ window.Widget = (function () {
             createOperator(dashboardID, "CoNWeT/ngsi-datamodel2heatmap/0.1.0").then(function (operatorID) {
                 // Connect heatmap operator to its source
                 var sourceEndpoint = {
-                    id: 1,
+                    id: 1,  // CKAN source operator in dashboard. TODO:  migrat to NGSI-source operator
                     type: "operator",
                     endpoint: "plain"
                 };
@@ -400,7 +454,7 @@ window.Widget = (function () {
             };
             var values = [];
             var createFilter = function createFilter() {
-                return createOperator(dashboardID, "CoNWeT/value-list-filter/0.1.0", {prop_name: prop_name});
+                return createOperator(dashboardID, "CoNWeT/value-list-filter/0.1.1", {prop_name: prop_name});
             };
             var createTendency = function createTendency(id) {
                 values.push(id);
@@ -408,7 +462,7 @@ window.Widget = (function () {
             };
             var createPanel = function createPanel(id) {
                 values.push(id);
-                return createWidget(dashboardID, tabID, "CoNWeT/panel/1.0.3");
+                return createWidget(dashboardID, tabID, "CoNWeT/panel/1.1.0");
             };
 
             createFilter().then(createTendency).then(createPanel).then(function (id) {
@@ -473,6 +527,74 @@ window.Widget = (function () {
         });
     };
 
+    // Configure the NGSI source of the dashboard
+    // TODO: When multi-entities, several sources should be created dinamically
+    var configureSourceOperator = function configureSourceOperator(workspaceId, sourceOperatorID, metadata) {
+        var data = [
+            {
+                op: "replace",
+                path: "/operators/" + sourceOperatorID + "/preferences/ngsi_server/value",
+                value: metadata.serverURL ? metadata.serverURL : ""
+            },
+            // {
+            //     op: "replace",
+            //     path: "/operators/"+ sourceOperatorID + "/ngsi_proxy/value",
+            //     value: metadata.proxyURL   // TODO: Make a preference or pick from somewhere
+            // },
+            {
+                op: "replace",
+                path: "/operators/" + sourceOperatorID + "/preferences/use_user_fiware_token/value",
+                value: true
+            },
+            {
+                op: "replace",
+                path: "/operators/" + sourceOperatorID + "/preferences/ngsi_tenant/value",
+                value: metadata.tenant ? metadata.tenant : ""
+            },
+            {
+                op: "replace",
+                path: "/operators/" + sourceOperatorID + "/preferences/ngsi_service_path/value",
+                value: metadata.servicePath ? metadata.servicePath : ""
+            },
+            {
+                op: "replace",
+                path: "/operators/" + sourceOperatorID + "/preferences/ngsi_entities/value",
+                value: metadata.types[0] ? metadata.types[0] : "" // TODO: soport multiple entity types
+            },
+            {
+                op: "replace",
+                path: "/operators/" + sourceOperatorID + "/preferences/ngsi_id_filter/value",
+                value: metadata.idPattern ? metadata.idPattern : ""
+            },
+            {
+                op: "replace",
+                path: "/operators/" + sourceOperatorID + "/preferences/query/value",
+                value: metadata.query ? metadata.query : ""
+            },
+            {
+                op: "replace",
+                path: "/operators/" + sourceOperatorID + "/preferences/ngsi_update_attributes/value",
+                value: metadata.filteredAttributes ? metadata.filteredAttributes.join() : ""
+            }
+
+        ];
+        return new Promise(function (fulfill, reject) {
+            MashupPlatform.http.makeRequest("/api/workspace/" + workspaceId + "/wiring", {
+                method: "PATCH",
+                supportsAccessControl: false,
+                postBody: JSON.stringify(data),
+                contentType: "application/json-patch+json",
+                onSuccess: function (response) {
+                    var r = JSON.parse(response.responseText);
+                    fulfill(r); // Return workspace data
+                },
+                onFailure: function (response) {
+                    reject(response);
+                }
+            });
+        });
+    };
+
     /*
         HELPER FUNCTIONS
     */
@@ -486,7 +608,7 @@ window.Widget = (function () {
         };
 
         return new Promise(function (fulfill, reject) {
-            MashupPlatform.http.makeRequest("http://127.0.0.1:8000/api/workspaces", {
+            MashupPlatform.http.makeRequest("/api/workspaces", {
                 method: "POST",
                 supportsAccessControl: false,
                 postBody: JSON.stringify(data),
@@ -514,7 +636,7 @@ window.Widget = (function () {
         };
 
         return new Promise(function (fulfill, reject) {
-            MashupPlatform.http.makeRequest("http://127.0.0.1:8000/api/workspace/" + workspaceID + "/tab/" + tabID + "/iwidgets", {
+            MashupPlatform.http.makeRequest("/api/workspace/" + workspaceID + "/tab/" + tabID + "/iwidgets", {
                 method: "POST",
                 supportsAccessControl: false,
                 postBody: JSON.stringify(data),
@@ -534,7 +656,7 @@ window.Widget = (function () {
         var data = preferences ? preferences : {};
 
         return new Promise(function (fulfill, reject) {
-            MashupPlatform.http.makeRequest("http://127.0.0.1:8000/api/workspace/" + workspaceID + "/tab/" + tabID + "/iwidgets/" + widgetID + "/preferences", {
+            MashupPlatform.http.makeRequest("/api/workspace/" + workspaceID + "/tab/" + tabID + "/iwidgets/" + widgetID + "/preferences", {
                 method: "POST",
                 supportsAccessControl: false,
                 postBody: JSON.stringify(data),
@@ -565,7 +687,7 @@ window.Widget = (function () {
         }];
 
         return new Promise(function (fulfill, reject) {
-            MashupPlatform.http.makeRequest("http://127.0.0.1:8000/api/workspace/" + workspaceID + "/wiring", {
+            MashupPlatform.http.makeRequest("/api/workspace/" + workspaceID + "/wiring", {
                 method: "PATCH",
                 supportsAccessControl: false,
                 postBody: JSON.stringify(data),
@@ -593,7 +715,7 @@ window.Widget = (function () {
         }];
 
         return new Promise(function (fulfill, reject) {
-            MashupPlatform.http.makeRequest("http://127.0.0.1:8000/api/workspace/" + workspaceID + "/wiring", {
+            MashupPlatform.http.makeRequest("/api/workspace/" + workspaceID + "/wiring", {
                 method: "PATCH",
                 supportsAccessControl: false,
                 postBody: JSON.stringify(data),

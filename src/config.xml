@@ -1,14 +1,14 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<widget xmlns="http://wirecloud.conwet.fi.upm.es/ns/macdescription/1" vendor="CoNWeT" name="NGSI-dashboard-creator" version="0.1.0">
+<widget xmlns="http://wirecloud.conwet.fi.upm.es/ns/macdescription/1" vendor="CoNWeT" name="NGSI-dashboard-creator" version="0.2.0">
 
     <details>
         <title>NGSI dashboard creator widget</title>
         <homepage>https://github.com/mognom/NGSI-dashboard-creato-widget</homepage>
-        <authors>Alejandro Rodríguez Fraga</authors>
-        <email>alex.rodriguez@conwet.com</email>
+        <authors>Miguel Jiménez Gañán</authors>
+        <email>mjimenez@conwet.com</email>
         <image></image>
         <smartphoneimage></smartphoneimage>
-        <description>The best project ever.</description>
+        <description>NGSI dashboard creator widget that acts as a wizard for interactively choose entity attributes and their desired representation format</description>
         <longdescription>DESCRIPTION.md</longdescription>
         <changelog>doc/changelog.md</changelog>
         <doc>doc/userguide.md</doc>
@@ -19,6 +19,7 @@
     <requirements>
         <feature name="DashboardManagement"/>
         <feature name="StyledElements"/>
+        <feature name="NGSI"/>
     </requirements>
 
     <preferences>
@@ -26,6 +27,7 @@
 
     <wiring>
         <inputendpoint name="dataset" type="text" label="Data and Structure" description="A JSON with two fields: structure (for the structure of the data) and data (the data ifself)" actionlabel="Data and Structure" friendcode="dataset"/>
+        <inputendpoint name="ngsimetadata" type="text" label="NGSI metadata" description="A JSON describing the CKAN-extended parameters of a fiware-ngsi dataset." actionlabel="NGSI metadata" friendcode="ngsi-metadata"/>
     </wiring>
 
     <contents src="index.html" useplatformstyle="true"/>

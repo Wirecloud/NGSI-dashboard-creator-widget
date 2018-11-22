@@ -1,6 +1,8 @@
 # NGSI dashboard creator widget widget
 
-The NGSI dashboard creator widget widget is a WireCloud widget that provides ...
+The NGSI dashboard creator widget widget is a WireCloud widget that creates a data visualization dashboard for NGSI-data in the form of a wizard.
+
+This widget starts with a CKAN metadata structure, such as the one outputted by the [CKAN-metadata-operator](https://github.com/Wirecloud/ckan-metadata-operator). 
 
 Build
 -----
