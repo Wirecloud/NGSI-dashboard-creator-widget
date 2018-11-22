@@ -536,11 +536,11 @@ window.Widget = (function () {
                 path: "/operators/" + sourceOperatorID + "/preferences/ngsi_server/value",
                 value: metadata.serverURL ? metadata.serverURL : ""
             },
-            // {
-            //     op: "replace",
-            //     path: "/operators/"+ sourceOperatorID + "/ngsi_proxy/value",
-            //     value: metadata.proxyURL   // TODO: Make a preference or pick from somewhere
-            // },
+            {
+                op: "replace",
+                path: "/operators/" + sourceOperatorID + "/ngsi_proxy/value",
+                value: metadata.proxyURL
+            },
             {
                 op: "replace",
                 path: "/operators/" + sourceOperatorID + "/preferences/use_user_fiware_token/value",
