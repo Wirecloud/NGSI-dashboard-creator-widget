@@ -18,6 +18,23 @@ window.Widget = (function () {
         model = null;
         this.components = [];
     };
+    var componentVersions = {
+        "ngsi-source": "CoNWeT/ngsi-source/4.0.0",
+        "ngsi-datamodel2poi": "CoNWeT/ngsi-datamodel2poi/3.0.8a2",
+        "calculate-tendency": "CoNWeT/calculate-tendency/0.3.1",
+        "column-chart-generator": "CoNWeT/column-chart-generator/0.3.2",
+        "gauge-chart-generator": "CoNWeT/gauge-chart-generator/0.1.0",
+        "highcharts": "CoNWeT/highcharts/0.1.2",
+        "labels-to-dataserie": "CoNWet/labels-to-dataserie/0.3.1",
+        "leaflet-map": "CoNWeT/leaflet-map/0.1.0",
+        "ngsi-datamodel2heatmap": "CoNWeT/ngsi-datamodel2heatmap/0.1.0",
+        "ngsientity2poi": "CoNWeT/ngsientity2poi/3.1.2",
+        "panel": "CoNWeT/panel/1.1.0",
+        "pie-chart-generator": "CoNWeT/pie-chart-generator/0.3.3",
+        "value-list-filter": "CoNWeT/value-list-filter/0.1.1",
+        "basengsimashup": "CoNWeT/basengsimashup/0.1.0"
+    };
+
 
     Widget.prototype.init = function init() {
         // TODO: Display a waiting for data or smth
@@ -357,7 +374,7 @@ window.Widget = (function () {
         // TODO: handle empty name
         var name = this.nameField.value;
         // TODO: remove the basengsimashup and use an empty one injecting the leaflet map
-        createWorkspace(name, "CoNWeT/basengsimashup/0.1.0", {}).then(
+        createWorkspace(name, componentVersions.basengsimashup, {}).then(
             configureDashboard.bind(this),
             function () {
                 MashupPlatform.widget.log("Could not create the workspace", MashupPlatform.log.ERROR);
@@ -410,7 +427,7 @@ window.Widget = (function () {
     var createHeatmapComponent = function createHeatmapComponent(dashboardID, mapWidgetID) {
         return new Promise(function (fulfill, reject) {
             // Create the heatmap operator
-            createOperator(dashboardID, "CoNWeT/ngsi-datamodel2heatmap/0.1.0").then(function (operatorID) {
+            createOperator(dashboardID, componentVersions["ngsi-datamodel2heatmap"]).then(function (operatorID) {
                 // Connect heatmap operator to its source
                 var sourceEndpoint = {
                     id: 1,  // CKAN source operator in dashboard. TODO:  migrat to NGSI-source operator
@@ -454,15 +471,15 @@ window.Widget = (function () {
             };
             var values = [];
             var createFilter = function createFilter() {
-                return createOperator(dashboardID, "CoNWeT/value-list-filter/0.1.1", {prop_name: prop_name});
+                return createOperator(dashboardID, componentVersions["value-list-filter"], {prop_name: prop_name});
             };
             var createTendency = function createTendency(id) {
                 values.push(id);
-                return createOperator(dashboardID, "CoNWeT/calculate-tendency/0.3.1");
+                return createOperator(dashboardID, componentVersions["calculate-tendency"]);
             };
             var createPanel = function createPanel(id) {
                 values.push(id);
-                return createWidget(dashboardID, tabID, "CoNWeT/panel/1.1.0");
+                return createWidget(dashboardID, tabID, componentVersions.panel);
             };
 
             createFilter().then(createTendency).then(createPanel).then(function (id) {
