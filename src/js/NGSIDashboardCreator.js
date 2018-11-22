@@ -20,7 +20,6 @@ window.Widget = (function () {
     };
 
     Widget.prototype.init = function init() {
-
         // TODO: Display a waiting for data or smth
         MashupPlatform.wiring.registerCallback('ngsimetadata', function (d) {
             metadata = typeof(d) == "string" ? JSON.parse(d) : d;
@@ -57,6 +56,7 @@ window.Widget = (function () {
     };
 
     Widget.prototype.startWidget = function startWidget() {
+        document.getElementsByClassName("loader")[0].style.display = "none";
         // Get datamodel
         // TODO: support multiple models
         model = metadata.types[0];
@@ -538,7 +538,7 @@ window.Widget = (function () {
             },
             {
                 op: "replace",
-                path: "/operators/" + sourceOperatorID + "/ngsi_proxy/value",
+                path: "/operators/" + sourceOperatorID + "/preferences/ngsi_proxy/value",
                 value: metadata.proxyURL
             },
             {
