@@ -186,7 +186,7 @@ window.Widget = (function () {
                     dataStructure[data[entity].entity.type] = {};
                 }
                 attrName = data[entity].attributes[attribute].name;
-                dataStructure[data[entity].entity.type][attrName] = data[entity].attributes[attribute].type; // Overwrites withour asking
+                dataStructure[data[entity].entity.type][attrName] = data[entity].attributes[attribute].type; // Overwrites without asking
             }
         }
     }
@@ -374,7 +374,7 @@ window.Widget = (function () {
         // TODO: handle empty name
         var name = this.nameField.value;
         // TODO: remove the basengsimashup and use an empty one injecting the leaflet map
-        createWorkspace(name, componentVersions.basengsimashup, {}).then(
+        createWorkspace(name, null, {}).then(
             configureDashboard.bind(this),
             function () {
                 MashupPlatform.widget.log("Could not create the workspace", MashupPlatform.log.ERROR);
@@ -389,14 +389,120 @@ window.Widget = (function () {
 
         // Get workspace initial components IDs
         var tabID = workspace.tabs[0].id;
-        var mapWidgetID = workspace.tabs[0].iwidgets[0].id; // Leaflet map is expected to be the 1st element
-        var sourceOperatorID = workspace.wiring.operators[1].id; // NGSI source is 1st element (starts on 1)
-        var i = 0;
+        var mapWidgetID, sourceOperatorID;
+        var i = 0; // index of the user-defined items being recursively provessed
         var componentList = this.components;
+
+        // Create initial dashboard dinamically
+        // NGSI-source-operator + FIWARE-data-model2poi-operator + Leaflet-map-widtet[insert/update POIs]
+        var createInitialComponents = function createInitialComponents() {
+            return new Promise(function (fulfill, reject) {
+                // Helper sub-sub-functions
+                var identifiers = [];
+                var createConnections = function createConnections() {
+                    mapWidgetID = identifiers[2];
+                    sourceOperatorID = identifiers[0];
+                    // Connect ngsi-source[entityOutput] with ngsi-datamodel2poi[entityInput]
+                    // Connect ngsi-datamodel2poi[poiOutput] --> leaflet-map[poiInput]
+                    var sourceEndpoint = {
+                        id: identifiers[0],
+                        type: "operator", // NGSI-source-operator ID
+                        endpoint: "entityOutput"
+                    };
+                    var targetEndpoint = {
+                        id: identifiers[1], // ngsi-datamodel2pio-operator ID
+                        type: "operator",
+                        endpoint: "entityInput"
+                    };
+                    createConnection(workspace.id, sourceEndpoint, targetEndpoint).then(function () {
+                        // Connect heatmap output to the map widget
+                        var sourceEndpoint = {
+                            id: identifiers[1], // ngsi-datamodel2poi operator ID
+                            type: "operator",
+                            endpoint: "poiOutput"
+                        }
+                        var targetEndpoint = {
+                            id: identifiers[2], // Map widget ID
+                            type: "widget",
+                            endpoint: "poiInput"
+                        };
+                        createConnection(workspace.id, sourceEndpoint, targetEndpoint).then(function () {
+                            fulfill(true);
+                        });
+                    });
+                };
+                var initialConfig = {
+                    ngsi_server: {
+                        hiddeen: false,
+                        readonly: false,
+                        value: metadata.serverURL ? metadata.serverURL : ""
+                    },
+                    ngsi_proxy: {
+                        hiddeen: false,
+                        readonly: false,
+                        value: metadata.proxyURL ? metadata.proxyURL : ""
+                    },
+                    use_user_fiware_token: {
+                        hiddeen: false,
+                        readonly: false,
+                        value: true
+                    },
+                    ngsi_tenant: {
+                        hiddeen: false,
+                        readonly: false,
+                        value: metadata.tenant ? metadata.tenant : ""
+                    },
+                    ngsi_service_path: {
+                        hiddeen: false,
+                        readonly: false,
+                        value: metadata.servicePath ? metadata.servicePath : ""
+                    },
+                    ngsi_entities: {
+                        hiddeen: false,
+                        readonly: false,
+                        value: metadata.types[0] ? metadata.types[0] : "" // TODO: soport multiple entity types
+                    },
+                    ngsi_id_filter: {
+                        hiddeen: false,
+                        readonly: false,
+                        value: metadata.idPattern ? metadata.idPattern : ""
+                    },
+                    query: {
+                        hiddeen: false,
+                        readonly: false,
+                        value: metadata.query ? metadata.query : ""
+                    },
+                    ngsi_update_attributes: {
+                        hiddeen: false,
+                        readonly: false,
+                        value: metadata.filteredAttributes ? metadata.filteredAttributes.join() : ""
+                    },
+                };
+                // TODO: un-chain them like in https://github.com/request/request-promise/issues/97
+                // var createSource = function createSource() {
+                //     return createOperator(identifiers, workspace.id, componentVersions["ngsi-source"],initialConfig);
+                // }
+                // var createDTM2poi = function createDTM2poi() {
+                //     return createOperator(identifiers, workspace.id, componentVersions["ngsi-datamodel2poi"]);
+                // }
+                // var createMap = function createMap() {
+                //     return createWidget(identifiers, workspace.id, tabID, componentVersions["leaflet-map"]);
+                // }
+                // createSource().then(createDTM2poi).then(createMap).then(createConnections);
+                createOperator(identifiers, workspace.id, componentVersions["ngsi-source"],initialConfig)
+                    .then(function () {
+                        return createOperator(identifiers, workspace.id, componentVersions["ngsi-datamodel2poi"]);
+                    }).then(function () {
+                        return createWidget(identifiers, workspace.id, tabID, componentVersions["leaflet-map"]);
+                    }).then(function () {
+                        createConnections();
+                    });
+            });
+        };
 
         // TODO: add missing types
         // Cant run parallel component creation in case the wirecloud instance is using the sqlite3 engine
-        var configureNextComponent = function configureNextComponent() {
+        var createNextComponent = function createNextComponent() {
             if (componentList.length <= i) {
                 return;
             }
@@ -404,38 +510,32 @@ window.Widget = (function () {
             var component = componentList[i++];
             var type = component.typeSelector.value;
             if (type === "Heatmap") {
-                createHeatmapComponent(workspace.id, mapWidgetID).then(configureNextComponent);
+                createHeatmapComponent(workspace.id, sourceOperatorID, mapWidgetID).then(createNextComponent);
             } else if (type === "Variable tendency") {
-                createTendencyComponent(workspace.id, mapWidgetID, tabID, component.variableSelector1.value, component.variableSelector2.value, component.sourceSelector.value).then(configureNextComponent);
-            } // TODO: missing "Scatter chart" type and createScatterComponent function
+                createTendencyComponent(workspace.id, sourceOperatorID, mapWidgetID, tabID, component.variableSelector1.value, component.variableSelector2.value, component.sourceSelector.value).then(createNextComponent);
+            } else {
+                // TODO: missing "Scatter chart" type and createScatterComponent function
+                createNextComponent();
+            }
         };
 
-        configureNextComponent(this.components, 0, workspace, tabID, mapWidgetID);
-
-        // After every component has been configured, NGSI source configuration is injected
-        configureSourceOperator(workspace.id, sourceOperatorID, metadata).then(
-            function () {
-                MashupPlatform.widget.log("Dashboard created successfully", MashupPlatform.log.INFO);
-            },
-            function () {
-                MashupPlatform.widget.log("Could not set NGSI-source-opperator properties", MashupPlatform.log.ERROR);
-            }
-        );
+        // Fire the creation of initial components and then, all the user-defined items
+        createInitialComponents().then(createNextComponent);
     };
 
     // Add a heatmap to the dashboard
-    var createHeatmapComponent = function createHeatmapComponent(dashboardID, mapWidgetID) {
+    var createHeatmapComponent = function createHeatmapComponent(dashboardID, sourceOperatorID, mapWidgetID) {
         return new Promise(function (fulfill, reject) {
-            // Create the heatmap operator
-            createOperator(dashboardID, componentVersions["ngsi-datamodel2heatmap"]).then(function (operatorID) {
+            var identifiers = []; // Stack of IDs of created operators and widgets fºor connections
+            var createConnections = function createConnections() {
                 // Connect heatmap operator to its source
                 var sourceEndpoint = {
-                    id: 1,  // CKAN source operator in dashboard. TODO:  migrat to NGSI-source operator
+                    id: sourceOperatorID,
                     type: "operator",
-                    endpoint: "plain"
+                    endpoint: "entityOutput"
                 };
                 var operatorEndpoint = {
-                    id: operatorID,
+                    id: identifiers[0], // ID of ngsi-datamodel2heatmap-operator
                     type: "operator",
                     endpoint: "input"
                 };
@@ -451,11 +551,16 @@ window.Widget = (function () {
                         fulfill(true);
                     });
                 });
-            });
+            };
+
+            createOperator(identifiers, dashboardID, componentVersions["ngsi-datamodel2heatmap"])
+                .then(function () {
+                    createConnections();
+                });
         });
     };
 
-    var createTendencyComponent = function createTendencyComponent(dashboardID, mapWidgetID, tabID, variable, tendencyType, source) {
+    var createTendencyComponent = function createTendencyComponent(dashboardID, sourceOperatorID, mapWidgetID, tabID, variable, tendencyType, source) {
         return new Promise(function (fulfill, reject) {
             // Create wirecloud components
             var filterBy;
@@ -464,36 +569,19 @@ window.Widget = (function () {
             } else {
                 filterBy = "data." + variable;
             }
-            var prop_name = {
+            var prop_nameValue = {
                 hidden: false,
                 readonly: false,
                 value: filterBy
             };
-            var values = [];
-            var createFilter = function createFilter() {
-                return createOperator(dashboardID, componentVersions["value-list-filter"], {prop_name: prop_name});
-            };
-            var createTendency = function createTendency(id) {
-                values.push(id);
-                return createOperator(dashboardID, componentVersions["calculate-tendency"]);
-            };
-            var createPanel = function createPanel(id) {
-                values.push(id);
-                return createWidget(dashboardID, tabID, componentVersions.panel);
-            };
-
-            createFilter().then(createTendency).then(createPanel).then(function (id) {
-                values.push(id);
-                createComponentConnections(values);
-            });
-
+            var identifiers = [];
             var createComponentConnections = function createComponentConnections(values) {
                 // Connect the wirecloud component
                 var sourceEndpoint, targetEndpoint;
                 // Connect source to filter operator
                 if (source === "All") {
                     sourceEndpoint = {
-                        id: 1,
+                        id: sourceOperatorID,
                         type: "operator",
                         endpoint: "plain"
                     };
@@ -541,6 +629,14 @@ window.Widget = (function () {
                     });
                 });
             };
+            createOperator(identifiers, dashboardID, componentVersions["value-list-filter"], {prop_name: prop_nameValue})
+                .then(function () {
+                    return createOperator(identifiers, dashboardID, componentVersions["calculate-tendency"]);
+                }).then(function () {
+                    return createWidget(identifiers, dashboardID, tabID, componentVersions.panel);
+                }).then(function () {
+                    createComponentConnections(identifiers);
+                });
         });
     };
 
@@ -616,13 +712,18 @@ window.Widget = (function () {
         HELPER FUNCTIONS
     */
     var createWorkspace = function createWorkspace(name, mashup, preferences) {
+        if (!name || name.length < 1) {
+            name = "Wizard-created workspace";
+        }
         var data = {
             dry_run: false,
             allow_renaming: true,
             name: name,
-            mashup: mashup,
             preferences: preferences
         };
+        if (mashup) {
+            data.mashup = mashup;
+        }
 
         return new Promise(function (fulfill, reject) {
             MashupPlatform.http.makeRequest("/api/workspaces", {
@@ -641,7 +742,7 @@ window.Widget = (function () {
         });
     };
 
-    var createWidget = function createWidget(workspaceID, tabID, widget, config) {
+    var createWidget = function createWidget(values, workspaceID, tabID, widget, config) {
         var data = {
             widget: widget,
             // height:
@@ -660,7 +761,8 @@ window.Widget = (function () {
                 contentType: "application/json",
                 onSuccess: function (response) {
                     var r = JSON.parse(response.responseText);
-                    fulfill(r.id); // Return widget id
+                    values.push(r.id); // Create a stack of widgets and operators IDs for consequent connections
+                    fulfill(true);
                 },
                 onFailure: function (response) {
                     reject(false);
@@ -688,15 +790,16 @@ window.Widget = (function () {
         });
     };
 
-    var operatorCount = 3; // Initial operator count for the base NGSI dashboard (2 operators and IDs start on 1)
-    var createOperator = function createOperator(workspaceID, operator, preferences, properties) {
+    // var currentOperatorID = 3; // Initial operator count for the base NGSI dashboard (2 operators and IDs start on 1)
+    var currentOperatorID = 1; // Initial operator count for the base NGSI dashboard (IDs start on 1)
+    var createOperator = function createOperator(values, workspaceID, operator, preferences, properties) {
         var op = {
             'name': operator,
             'preferences': preferences ? preferences : {},
             'properties': properties ? properties : {}
         };
 
-        var operatorID = operatorCount++;
+        var operatorID = currentOperatorID++;
         var data = [{
             'op': "add",
             'path': "/operators/" + operatorID,
@@ -710,7 +813,8 @@ window.Widget = (function () {
                 postBody: JSON.stringify(data),
                 contentType: "application/json-patch+json",
                 onSuccess: function (response) {
-                    fulfill(operatorID);
+                    values.push(operatorID); // Create a stack of widgets and operators IDs for consequent connections
+                    fulfill(true);
                 },
                 onFailure: function (response) {
                     reject(false);
@@ -727,7 +831,7 @@ window.Widget = (function () {
 
         var data = [{
             'op': "add",
-            'path': "/connections/1",
+            'path': "/connections/-",
             'value': connection
         }];
 
