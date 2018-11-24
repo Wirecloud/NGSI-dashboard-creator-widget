@@ -478,6 +478,13 @@ window.Widget = (function () {
                         value: metadata.filteredAttributes ? metadata.filteredAttributes.join() : ""
                     },
                 };
+		var mapConfig {
+		    title: "Map",
+		    width: 10,
+		    heighth: 24,
+		    top: 0,
+		    left: 0
+		}
                 // TODO: un-chain them like in https://github.com/request/request-promise/issues/97
                 // var createSource = function createSource() {
                 //     return createOperator(identifiers, workspace.id, componentVersions["ngsi-source"],initialConfig);
@@ -493,7 +500,7 @@ window.Widget = (function () {
                     .then(function () {
                         return createOperator(identifiers, workspace.id, componentVersions["ngsi-datamodel2poi"]);
                     }).then(function () {
-                        return createWidget(identifiers, workspace.id, tabID, componentVersions["leaflet-map"]);
+                        return createWidget(identifiers, workspace.id, tabID, componentVersions["leaflet-map"], mapConfig);
                     }).then(function () {
                         createConnections();
                     });
@@ -574,6 +581,13 @@ window.Widget = (function () {
                 readonly: false,
                 value: filterBy
             };
+	    var panelConfig = {
+	        title: tendencyType + " of " + variable,
+                width: 5,
+                height: 12,
+                top: 0,
+                left: 10
+            }
             var identifiers = [];
             var createComponentConnections = function createComponentConnections(values) {
                 // Connect the wirecloud component
@@ -633,7 +647,7 @@ window.Widget = (function () {
                 .then(function () {
                     return createOperator(identifiers, dashboardID, componentVersions["calculate-tendency"]);
                 }).then(function () {
-                    return createWidget(identifiers, dashboardID, tabID, componentVersions.panel);
+                    return createWidget(identifiers, dashboardID, tabID, componentVersions.panel, panelConfig);
                 }).then(function () {
                     createComponentConnections(identifiers);
                 });
@@ -743,8 +757,10 @@ window.Widget = (function () {
     };
 
     var createWidget = function createWidget(values, workspaceID, tabID, widget, config) {
+	// Config adds properties in the form of a map {title, height, width, left, top}
         var data = {
             widget: widget,
+            title: config.title,
             // height:
             // width:
             commit: true,
@@ -752,12 +768,13 @@ window.Widget = (function () {
             // top: ?
             layout: 0
         };
+	var dataAndConfig = {...data, ...config}
 
         return new Promise(function (fulfill, reject) {
             MashupPlatform.http.makeRequest("/api/workspace/" + workspaceID + "/tab/" + tabID + "/iwidgets", {
                 method: "POST",
                 supportsAccessControl: false,
-                postBody: JSON.stringify(data),
+                postBody: JSON.stringify(dataAndConfig),
                 contentType: "application/json",
                 onSuccess: function (response) {
                     var r = JSON.parse(response.responseText);
