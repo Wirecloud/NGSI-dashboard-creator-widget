@@ -62,7 +62,7 @@ window.Widget = (function () {
                 var attributeList = metadata.filteredAttributes;;
                 var options = {
                     flat: false,
-                    limit: 20,
+                    limit: 50,
                     details: true,
                     onSuccess: processSampleData.bind(this)
                 };
