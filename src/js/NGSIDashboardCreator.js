@@ -13,6 +13,7 @@ window.Widget = (function () {
     "use strict";
     var metadata;
     var dataStructure = {};
+    var mapData = {};
     var model;
     var Widget = function Widget() {
         model = null;
@@ -81,6 +82,9 @@ window.Widget = (function () {
 
         // Add create component & dashboard buttons
         var buttons = document.getElementById('buttons');
+        while (buttons.lastChild) {
+            buttons.removeChild(buttons.lastChild);
+        }
 
         var playbtn = new StyledElements.Button({
             'class': 'btn-danger fa fa-circle',
@@ -179,16 +183,85 @@ window.Widget = (function () {
     var processSampleData = function processSampleData(data, details) {
         // Received non-flat structure with further details
         dataStructure = {}; // Supports multi-entities
+        mapData = {};
         var attrName;
+        var attrType;
         for (var entity in data) {
             for (var attribute in data[entity].attributes) {
                 if (typeof(dataStructure[data[entity].entity.type]) !== "object") {
                     dataStructure[data[entity].entity.type] = {};
                 }
                 attrName = data[entity].attributes[attribute].name;
-                dataStructure[data[entity].entity.type][attrName] = data[entity].attributes[attribute].type; // Overwrites without asking
+                attrType = data[entity].attributes[attribute].type;
+                dataStructure[data[entity].entity.type][attrName] = attrType; // Overwrites without asking
+                if (attrType.toLowerCase() == 'geo:json') {
+                    processLocationData(mapData, data[entity].attributes[attribute].value);
+                }
             }
         }
+    }
+
+    var processLocationData = function processLocationData(mapData, location) {
+        // Aux function for single point comparison
+        var processSingleData = function processSingleData(mapData, point) {
+            if (!mapData.longMin || mapData.longMin > point[0]) {
+                mapData.longMin = point[0];
+            }
+            if (!mapData.longMax || mapData.longMax < point[0]) {
+                mapData.longMax = point[0];
+            }
+            if (!mapData.latMin || mapData.latMin > point[1]) {
+                mapData.latMin = point[1];
+            }
+            if (!mapData.latMax || mapData.latMax < point[1]) {
+                mapData.latMax = point[1];
+            }
+        }
+        var getDistanceFromLatLonInKm = function getDistanceFromLatLonInKm(lat1,lon1,lat2,lon2) {
+            var R = 6371; // Radius of the earth in km
+            var dLat = deg2rad(lat2 - lat1);  // deg2rad below
+            var dLon = deg2rad(lon2 - lon1);
+            var a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2)
+            ;
+            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            var d = R * c; // Distance in km
+            return d;
+        }
+
+        var deg2rad = function deg2rad(deg) {
+            return deg * (Math.PI / 180)
+        }
+
+        if (location.type.toLowerCase() == "point") {
+            processSingleData(mapData, location.coordinates);
+        } else if (location.type.toLowerCase() == "linestring") {
+            for (var i in location.coordinates) {
+                processSingleData(mapData, location.coordinates[i]);
+            }
+        } else if (location.type.toLowerCase() == "polygon" || location.type.toLowerCase() == "multilinestring") {
+            for (var i in location.coordinates) {
+                for (var j in location.coordinates[i]) {
+                    processSingleData(mapData, location.coordinates[i][j]);
+                }
+            }
+        } else if (location.type.toLowerCase() == "multipolygon") {
+            for (var i in location.coordinates) {
+                for (var j in location.coordinates[i]) {
+                    for (var k in location.coordinates[i][j]) {
+                        processSingleData(mapData, location.coordinates[i][j][k]);
+                    }
+                }
+            }
+        }
+
+        // Final calculations
+        mapData.longAvg = (mapData.longMin + mapData.longMax) / 2;
+        mapData.latAvg = (mapData.latMin + mapData.latMax) / 2;
+        mapData.verticalDistance = getDistanceFromLatLonInKm(mapData.latMin, mapData.longAvg, mapData.latMax, mapData.longAvg);
+        mapData.horizontalDistance = getDistanceFromLatLonInKm(mapData.latAvg, mapData.longMin, mapData.latAvg, mapData.longMax);
     }
 
     var getVariableSelectorEntries = function getVariableSelectorEntries() {
@@ -219,8 +292,10 @@ window.Widget = (function () {
     var setRecommendedOptions = function setRecommendedOptions(selector, options) {
         var o = selector.inputElement.childNodes;
 
-        for (var i = 0; i < options.length; i++) {
-            o[i].classList.add("recommended");
+        for (var i = 0; i < o.length; i++) {
+            if (options.includes(o[i].value)) {
+                o[i].classList.add("recommended");
+            }
         }
     };
 
@@ -445,7 +520,7 @@ window.Widget = (function () {
                     use_user_fiware_token: {
                         hiddeen: false,
                         readonly: false,
-                        value: true
+                        value: false
                     },
                     ngsi_tenant: {
                         hiddeen: false,
@@ -478,29 +553,26 @@ window.Widget = (function () {
                         value: metadata.filteredAttributes ? metadata.filteredAttributes.join() : ""
                     },
                 };
-		var mapConfig {
-		    title: "Map",
-		    width: 10,
-		    heighth: 24,
-		    top: 0,
-		    left: 0
-		}
-                // TODO: un-chain them like in https://github.com/request/request-promise/issues/97
-                // var createSource = function createSource() {
-                //     return createOperator(identifiers, workspace.id, componentVersions["ngsi-source"],initialConfig);
-                // }
-                // var createDTM2poi = function createDTM2poi() {
-                //     return createOperator(identifiers, workspace.id, componentVersions["ngsi-datamodel2poi"]);
-                // }
-                // var createMap = function createMap() {
-                //     return createWidget(identifiers, workspace.id, tabID, componentVersions["leaflet-map"]);
-                // }
-                // createSource().then(createDTM2poi).then(createMap).then(createConnections);
+                var mapConfig = {
+                    title: "Map",
+                    width: 10,
+                    height: 36,
+                    top: 0,
+                    left: 0
+                };
+                var mapPreferences = {
+                    initialCenter: mapData.longAvg + "," + mapData.latAvg,
+                    initialZoom: 15 - Math.round(Math.log2(Math.max(mapData.verticalDistance,mapData.horizontalDistance)),1),
+                    maxzoom: "18",
+                    minzoom: "4"
+                };
                 createOperator(identifiers, workspace.id, componentVersions["ngsi-source"],initialConfig)
                     .then(function () {
                         return createOperator(identifiers, workspace.id, componentVersions["ngsi-datamodel2poi"]);
                     }).then(function () {
                         return createWidget(identifiers, workspace.id, tabID, componentVersions["leaflet-map"], mapConfig);
+                    }).then(function () {
+                        return addWidgetPreferences(workspace.id, tabID, identifiers[2], mapPreferences);
                     }).then(function () {
                         createConnections();
                     });
@@ -581,10 +653,10 @@ window.Widget = (function () {
                 readonly: false,
                 value: filterBy
             };
-	    var panelConfig = {
-	        title: tendencyType + " of " + variable,
+            var panelConfig = {
+                title: tendencyType + " of " + variable,
                 width: 5,
-                height: 12,
+                height: 18,
                 top: 0,
                 left: 10
             }
@@ -761,20 +833,19 @@ window.Widget = (function () {
         var data = {
             widget: widget,
             title: config.title,
-            // height:
-            // width:
+            height: config.height,
+            width: config.width,
             commit: true,
-            // left: ?
-            // top: ?
+            left: config.left,
+            top: config.top,
             layout: 0
         };
-	var dataAndConfig = {...data, ...config}
 
         return new Promise(function (fulfill, reject) {
             MashupPlatform.http.makeRequest("/api/workspace/" + workspaceID + "/tab/" + tabID + "/iwidgets", {
                 method: "POST",
                 supportsAccessControl: false,
-                postBody: JSON.stringify(dataAndConfig),
+                postBody: JSON.stringify(data),
                 contentType: "application/json",
                 onSuccess: function (response) {
                     var r = JSON.parse(response.responseText);
@@ -792,7 +863,7 @@ window.Widget = (function () {
         var data = preferences ? preferences : {};
 
         return new Promise(function (fulfill, reject) {
-            MashupPlatform.http.makeRequest("/api/workspace/" + workspaceID + "/tab/" + tabID + "/iwidgets/" + widgetID + "/preferences", {
+            MashupPlatform.http.makeRequest("/api/workspace/" + workspaceID + "/tab/" + tabID + "/iwidget/" + widgetID + "/preferences", {
                 method: "POST",
                 supportsAccessControl: false,
                 postBody: JSON.stringify(data),

@@ -8,7 +8,7 @@
         <email>mjimenez@conwet.com</email>
         <image></image>
         <smartphoneimage></smartphoneimage>
-        <description>NGSI dashboard creator widget that acts as a wizard for interactively choose entity attributes and their desired representation format</description>
+        <description>NGSI dashboard creator widget that acts as a wizard for interactively choose entity attributes and their desired representation format. It receives NGSI structure from ngsi-source-operator (>=4.1.0) or ckan-metadata-operator.</description>
         <longdescription>DESCRIPTION.md</longdescription>
         <changelog>doc/changelog.md</changelog>
         <doc>doc/userguide.md</doc>
