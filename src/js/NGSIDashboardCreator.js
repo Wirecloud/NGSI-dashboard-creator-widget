@@ -34,6 +34,7 @@ window.Widget = (function () {
         "pie-chart-generator": "CoNWeT/pie-chart-generator/0.3.3",
         "scatter-chart-generator": "CoNWeT/scatter-chart-generator/0.1.0",
         "value-list-filter": "CoNWeT/value-list-filter/0.1.1",
+        "value-filter": "CoNWeT/value-filter/0.1.0",
         "basengsimashup": "CoNWeT/basengsimashup/0.1.0",
         "ol3-map": "CoNWeT/ol3-map/1.1.3",
     };
@@ -181,6 +182,8 @@ window.Widget = (function () {
     };
 
     var TENDENCY_TYPES = [["maximum", "Max"], ["minimum", "Min"], ["arithmetic-mean", "Mean"], ["count", "Count"], ["sum", "Sum"]];
+    var GROUPED_SOURCE_TYPES = ["Visible POIs", "All"];
+    var GROUP_SINGLE_SOURCE_TYPES = ["Visible POIs", "All", "Selected POI (individual)"];
 
     var processSampleData = function processSampleData(data, details) {
         // Received non-flat structure with further details
@@ -325,7 +328,7 @@ window.Widget = (function () {
         var typeTitle = new StyledElements.Fragment("<h4> Component type </h4>");
         // TODO: add more types
         // TODO: enable heatmap option only when available
-        component.typeSelector = new StyledElements.Select({initialEntries: ["Variable tendency", "Scatter chart", "Pie chart", "Column chart"], initialValue: "Variable tendency"});
+        component.typeSelector = new StyledElements.Select({initialEntries: ["Variable tendency", "Scatter chart", "Pie chart", "Column chart", "Gauge chart"], initialValue: "Variable tendency"});
         component.typeSelector.addEventListener("change", componentTypeHandler.bind(component));
         div.appendChild(typeDiv);
         typeTitle.insertInto(typeDiv);
@@ -354,7 +357,7 @@ window.Widget = (function () {
 
         var sourceDiv = document.createElement('div');
         var sourceTitle = new StyledElements.Fragment("<h4> Data scope </h4>");
-        component.sourceSelector = new StyledElements.Select({initialEntries: ["All", "Visible POIs"], initialValue: "Visible POIs"});
+        component.sourceSelector = new StyledElements.Select({initialEntries: GROUPED_SOURCE_TYPES, initialValue: GROUPED_SOURCE_TYPES[0] });
         div.appendChild(sourceDiv);
         sourceTitle.insertInto(sourceDiv);
         component.sourceSelector.insertInto(sourceDiv);
@@ -390,6 +393,7 @@ window.Widget = (function () {
         case "Scatter chart": configureScatterType.call(this); break;
         case "Pie chart": configurePieColumnType.call(this); break;
         case "Column chart": configurePieColumnType.call(this); break;
+        case "Gauge chart": configureGaugeType.call(this); break;
         default: configureTendencyType.call(this); break;
         }
     };
@@ -405,6 +409,10 @@ window.Widget = (function () {
             this.variableSelector2.oldValue = this.variableSelector2.value;
         }
         this.variableSelector2.clear();
+
+        // Restore default source values
+        this.sourceSelector.clear();
+        this.sourceSelector.addEntries(GROUPED_SOURCE_TYPES);
 
         // Get new entries
         var entries = getVariableSelectorEntries.call(this);
@@ -441,6 +449,10 @@ window.Widget = (function () {
         }
         this.variableSelector2.clear();
 
+        // Restore default source values
+        this.sourceSelector.clear();
+        this.sourceSelector.addEntries(GROUPED_SOURCE_TYPES);
+
         // Get new entries
         var entries = getVariableSelectorEntries.call(this);
         this.variableSelector1.addEntries(entries);
@@ -463,6 +475,10 @@ window.Widget = (function () {
         }
         this.variableSelector1.clear();
 
+        // Restore default source values
+        this.sourceSelector.clear();
+        this.sourceSelector.addEntries(GROUPED_SOURCE_TYPES);
+
         // Get new entries
         var entries = getVariableSelectorEntries.call(this);
         this.variableSelector1.addEntries(entries);
@@ -473,6 +489,30 @@ window.Widget = (function () {
         // Enable needed selectors
         this.variableSelector1.wrapperElement.parentElement.classList.remove("hidden");
         this.variableSelector2.wrapperElement.parentElement.classList.add("hidden");
+        this.sourceSelector.wrapperElement.parentElement.classList.remove("hidden");
+    };
+
+    var configureGaugeType = function configureGaugeType() {
+        // Remove previous entries
+        if (this.variableSelector1.value !== undefined) {
+            this.variableSelector1.oldValue = this.variableSelector1.value;
+        }
+        this.variableSelector1.clear();
+
+        // Restore default source values
+        this.sourceSelector.clear();
+        this.sourceSelector.addEntries(GROUP_SINGLE_SOURCE_TYPES);
+
+        // Get new entries
+        var entries = getVariableSelectorEntries.call(this);
+        this.variableSelector1.addEntries(entries);
+
+        // Restore previous values
+        this.variableSelector1.setValue(this.variableSelector1.oldValue);
+
+        // Enable needed selectors
+        this.variableSelector1.wrapperElement.parentElement.classList.remove("hidden");
+        this.variableSelector2.wrapperElement.parentElement.classList.remove("hidden");
         this.sourceSelector.wrapperElement.parentElement.classList.remove("hidden");
     };
 
@@ -627,6 +667,8 @@ window.Widget = (function () {
                 createPieComponent(workspace.id, sourceOperatorID, mapWidgetID, tabID, component.variableSelector1.value, component.sourceSelector.value).then(createNextComponent);
             } else if (type === "Column chart") {
                 createColumnComponent(workspace.id, sourceOperatorID, mapWidgetID, tabID, component.variableSelector1.value, component.sourceSelector.value).then(createNextComponent);
+            } else if (type === "Gauge chart") {
+                createGaugeComponent(workspace.id, sourceOperatorID, mapWidgetID, tabID, component.variableSelector1.value, component.variableSelector2.value, component.sourceSelector.value).then(createNextComponent);
             }
         };
 
@@ -701,7 +743,7 @@ window.Widget = (function () {
                     sourceEndpoint = {
                         id: sourceOperatorID,
                         type: "operator",
-                        endpoint: "plain"
+                        endpoint: "entityOutput"
                     };
                 } else {
                     sourceEndpoint = {
@@ -800,7 +842,7 @@ window.Widget = (function () {
                     sourceEndpoint = {
                         id: sourceOperatorID,
                         type: "operator",
-                        endpoint: "plain"
+                        endpoint: "entityOutput"
                     };
                 } else {
                     sourceEndpoint = {
@@ -896,7 +938,7 @@ window.Widget = (function () {
                     sourceEndpoint = {
                         id: sourceOperatorID,
                         type: "operator",
-                        endpoint: "plain"
+                        endpoint: "entityOutput"
                     };
                 } else {
                     sourceEndpoint = {
@@ -973,7 +1015,7 @@ window.Widget = (function () {
                 height: 18,
                 top: 0,
                 left: 10
-            }
+            };
             var identifiers = [];
             var createComponentConnections = function createComponentConnections(values) {
                 // Connect the wirecloud component
@@ -983,7 +1025,7 @@ window.Widget = (function () {
                     sourceEndpoint = {
                         id: sourceOperatorID,
                         type: "operator",
-                        endpoint: "plain"
+                        endpoint: "entityOutput"
                     };
                 } else {
                     sourceEndpoint = {
@@ -1060,6 +1102,153 @@ window.Widget = (function () {
         });
     };
 
+    var createGaugeComponent = function createGaugeComponent(dashboardID, sourceOperatorID, mapWidgetID, tabID, variable, tendencyType, source) {
+        // Source can have a special value: Selected POI (individual)
+        // In such case, a tendency with a "max" value is connected to the max of the gauge
+        return new Promise(function (fulfill, reject) {
+            // Create wirecloud components
+            var filterBy;
+            if (source === "All" || source === "Selected POI (individual)") {
+                filterBy = variable;
+            } else {
+                filterBy = "data." + variable;
+            }
+            var prop_nameValue = {
+                hidden: false,
+                readonly: false,
+                value: filterBy
+            };
+            var prop_nameValueIndividual = {
+                hidden: false,
+                readonly: false,
+                value: "data." + variable // This operator does connect after the map always
+            };
+            var highchartsConfig = {
+                title: (source === "Selected POI (individual)") ? variable + " of POI" : tendencyType + " of " + variable,
+                width: 5,
+                height: 18,
+                top: 0,
+                left: 10
+            };
+            var identifiers = [];
+            var createComponentConnections = function createComponentConnections(values) {
+                // Connect the wirecloud component
+                var sourceEndpoint, targetEndpoint;
+                // Connect source to filter operator
+                if (source === "All" || source === "Selected POI (individual)") {
+                    sourceEndpoint = {
+                        id: sourceOperatorID,
+                        type: "operator",
+                        endpoint: "entityOutput"
+                    };
+                } else {
+                    sourceEndpoint = {
+                        id: mapWidgetID,
+                        type: "widget",
+                        endpoint: "poiListOutput"
+                    };
+                }
+                targetEndpoint = {
+                    id: values[0],
+                    type: "operator",
+                    endpoint: "indata"
+                };
+                createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                    // connect filter operator to tendency operator
+                    sourceEndpoint = {
+                        id: values[0],
+                        type: "operator",
+                        endpoint: "outdata"
+                    };
+
+                    targetEndpoint = {
+                        id: values[1],
+                        type: "operator",
+                        endpoint: "value-list"
+                    };
+                    createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                        // Connect tendency operator to gauge-generator operator
+                        sourceEndpoint = {
+                            id: values[1],
+                            type: "operator",
+                            endpoint: tendencyType
+                        };
+                        targetEndpoint = {
+                            id: values[2],
+                            type: "operator",
+                            endpoint: (source === "Selected POI (individual)") ? "newMax" : "value",
+                        };
+                        createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                            // Connect gauge-generator operator to highchacrt
+                            sourceEndpoint = {
+                                id: values[2],
+                                type: "operator",
+                                endpoint: "chart-options"
+                            };
+
+                            targetEndpoint = {
+                                id: values[3],
+                                type: "widget",
+                                endpoint: "highcharts"
+                            };
+                            createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                                // If POI-data -> Connect value-filter to POI-data and value of
+                                // gauge-generator
+                                if (source === "Selected POI (individual)") {
+                                    sourceEndpoint = {
+                                        id: mapWidgetID,
+                                        type: "widget",
+                                        endpoint: "poiOutput"
+                                    };
+                                    targetEndpoint = {
+                                        id: values[4],
+                                        type: "operator",
+                                        endpoint: "inputData"
+                                    };
+                                    createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                                        sourceEndpoint = {
+                                            id: values[4],
+                                            type: "operator",
+                                            endpoint: "outputData"
+                                        };
+                                        targetEndpoint = {
+                                            id: values[2],
+                                            type: "operator",
+                                            endpoint: "value"
+                                        };
+                                        createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                                            fulfill(true);
+                                        });
+                                    });
+                                } else {
+                                    // No extra connections needed
+                                    fulfill(true);
+                                }
+                            });
+                        });
+                    });
+                });
+            };
+
+            createOperator(identifiers, dashboardID, componentVersions["value-list-filter"], {prop_name: prop_nameValue})
+                .then(function () {
+                    return createOperator(identifiers, dashboardID, componentVersions["calculate-tendency"]);
+                }).then(function () {
+                    return createOperator(identifiers, dashboardID, componentVersions["gauge-chart-generator"]);
+                }).then(function () {
+                    return createWidget(identifiers, dashboardID, tabID, componentVersions.highcharts, highchartsConfig);
+                }).then(function () {
+                    if (source === "Selected POI (individual)") {
+                        return createOperator(identifiers, dashboardID, componentVersions["value-filter"], {prop_name: prop_nameValueIndividual});
+                    } else {
+                        createComponentConnections(identifiers);
+                    }
+                }).then(function () {
+                    createComponentConnections(identifiers);
+                });
+        });
+    };
+
     // Configure the NGSI source of the dashboard
     // TODO: When multi-entities, several sources should be created dinamically
     var configureSourceOperator = function configureSourceOperator(workspaceId, sourceOperatorID, metadata) {
@@ -1130,7 +1319,7 @@ window.Widget = (function () {
 
     /*
         HELPER FUNCTIONS
-    */
+        */
     var createWorkspace = function createWorkspace(name, mashup, preferences) {
         if (!name || name.length < 1) {
             name = "Wizard-created workspace";
@@ -1163,7 +1352,7 @@ window.Widget = (function () {
     };
 
     var createWidget = function createWidget(values, workspaceID, tabID, widget, config) {
-	// Config adds properties in the form of a map {title, height, width, left, top}
+        // Config adds properties in the form of a map {title, height, width, left, top}
         var data = {
             widget: widget,
             title: config.title,
