@@ -324,7 +324,7 @@ window.Widget = (function () {
         var typeTitle = new StyledElements.Fragment("<h4> Component type </h4>");
         // TODO: add more types
         // TODO: enable heatmap option only when available
-        component.typeSelector = new StyledElements.Select({initialEntries: ["Variable tendency", "Scatter chart", "Pie chart","Heatmap"], initialValue: "Variable tendency"});
+        component.typeSelector = new StyledElements.Select({initialEntries: ["Variable tendency", "Scatter chart", "Pie chart", "Column chart", "Heatmap"], initialValue: "Variable tendency"});
         component.typeSelector.addEventListener("change", componentTypeHandler.bind(component));
         div.appendChild(typeDiv);
         typeTitle.insertInto(typeDiv);
@@ -387,7 +387,8 @@ window.Widget = (function () {
         case "Heatmap": configureHeatmapType.call(this); break;
         case "Variable tendency": configureTendencyType.call(this); break;
         case "Scatter chart": configureScatterType.call(this); break;
-        case "Pie chart": configurePieType.call(this); break;
+        case "Pie chart": configurePieColumnType.call(this); break;
+        case "Column chart": configurePieColumnType.call(this); break;
         default: configureTendencyType.call(this); break;
         }
     };
@@ -454,7 +455,7 @@ window.Widget = (function () {
         this.sourceSelector.wrapperElement.parentElement.classList.remove("hidden");
     };
 
-    var configurePieType = function configurePieType() {
+    var configurePieColumnType = function configurePieColumnType() {
         // Remove previous entries
         if (this.variableSelector1.value !== undefined) {
             this.variableSelector1.oldValue = this.variableSelector1.value;
@@ -626,6 +627,8 @@ window.Widget = (function () {
                 createScatterComponent(workspace.id, sourceOperatorID, mapWidgetID, tabID, component.variableSelector1.value, component.variableSelector2.value, component.sourceSelector.value).then(createNextComponent);
             } else if (type === "Pie chart") {
                 createPieComponent(workspace.id, sourceOperatorID, mapWidgetID, tabID, component.variableSelector1.value, component.sourceSelector.value).then(createNextComponent);
+            } else if (type === "Column chart") {
+                createColumnComponent(workspace.id, sourceOperatorID, mapWidgetID, tabID, component.variableSelector1.value, component.sourceSelector.value).then(createNextComponent);
             }
         };
 
@@ -865,7 +868,6 @@ window.Widget = (function () {
         });
     };
 
-
     var createPieComponent = function createPieComponent(dashboardID, sourceOperatorID, mapWidgetID, tabID, variable, source) {
         return new Promise(function (fulfill, reject) {
             // Create wirecloud components
@@ -945,6 +947,113 @@ window.Widget = (function () {
             createOperator(identifiers, dashboardID, componentVersions["value-list-filter"], {prop_name: prop_nameValue})
                 .then(function () {
                     return createOperator(identifiers, dashboardID, componentVersions["pie-chart-generator"]);
+                }).then(function () {
+                    return createWidget(identifiers, dashboardID, tabID, componentVersions.highcharts, highchartsConfig);
+                }).then(function () {
+                    createComponentConnections(identifiers);
+                });
+        });
+    };
+
+    var createColumnComponent = function createColumnComponent(dashboardID, sourceOperatorID, mapWidgetID, tabID, variable, source) {
+        return new Promise(function (fulfill, reject) {
+            // Create wirecloud components
+            var filterBy;
+            if (source === "All") {
+                filterBy = variable;
+            } else {
+                filterBy = "data." + variable;
+            }
+            var prop_nameValue = {
+                hidden: false,
+                readonly: false,
+                value: filterBy
+            };
+            var highchartsConfig = {
+                title: "Column chart of " + variable,
+                width: 5,
+                height: 18,
+                top: 0,
+                left: 10
+            }
+            var identifiers = [];
+            var createComponentConnections = function createComponentConnections(values) {
+                // Connect the wirecloud component
+                var sourceEndpoint, targetEndpoint;
+                // Connect source to filter operator
+                if (source === "All") {
+                    sourceEndpoint = {
+                        id: sourceOperatorID,
+                        type: "operator",
+                        endpoint: "plain"
+                    };
+                } else {
+                    sourceEndpoint = {
+                        id: mapWidgetID,
+                        type: "widget",
+                        endpoint: "poiListOutput"
+                    };
+                }
+                targetEndpoint = {
+                    id: values[0],
+                    type: "operator",
+                    endpoint: "indata"
+                };
+                createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                    // connect filter operator to labels-to-dataserie operator
+                    sourceEndpoint = {
+                        id: values[0],
+                        type: "operator",
+                        endpoint: "outdata"
+                    };
+
+                    targetEndpoint = {
+                        id: values[1],
+                        type: "operator",
+                        endpoint: "label-list"
+                    };
+                    createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                        // Connect labels-to-dataserie to column-chart-generator (data-serie)
+                        sourceEndpoint = {
+                            id: values[1],
+                            type: "operator",
+                            endpoint: "data-serie"
+                        };
+
+                        targetEndpoint = {
+                            id: values[2],
+                            type: "operator",
+                            endpoint: "data-serie"
+                        };
+                        createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                            // Connect labels-to-dataserie to column-chart-generator (data-serie)
+                            sourceEndpoint.endpoint = "label-serie";
+                            targetEndpoint.endpoint = "label-list";
+                            createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                                // Connect column-chart-generator with highcharts widget
+                                sourceEndpoint = {
+                                    id: values[2],
+                                    type: "operator",
+                                    endpoint: "chart-options"
+                                };
+                                targetEndpoint = {
+                                    id: values[3],
+                                    type: "widget",
+                                    endpoint: "highcharts"
+                                };
+                                createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                                    fulfill(true);
+                                });
+                            });
+                        });
+                    });
+                });
+            };
+            createOperator(identifiers, dashboardID, componentVersions["value-list-filter"], {prop_name: prop_nameValue})
+                .then(function () {
+                    return createOperator(identifiers, dashboardID, componentVersions["labels-to-dataserie"]);
+                }).then(function () {
+                    return createOperator(identifiers, dashboardID, componentVersions["column-chart-generator"]);
                 }).then(function () {
                     return createWidget(identifiers, dashboardID, tabID, componentVersions.highcharts, highchartsConfig);
                 }).then(function () {
