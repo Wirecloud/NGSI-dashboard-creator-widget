@@ -25,15 +25,16 @@ window.Widget = (function () {
         "calculate-tendency": "CoNWeT/calculate-tendency/0.3.1",
         "column-chart-generator": "CoNWeT/column-chart-generator/0.3.2",
         "gauge-chart-generator": "CoNWeT/gauge-chart-generator/0.1.0",
-        "highcharts": "CoNWeT/highcharts/0.1.2",
+        "highcharts": "CoNWeT/highcharts/0.1.3",
         "labels-to-dataserie": "CoNWet/labels-to-dataserie/0.3.1",
         "leaflet-map": "CoNWeT/leaflet-map/0.1.0",
         "ngsi-datamodel2heatmap": "CoNWeT/ngsi-datamodel2heatmap/0.1.0",
         "ngsientity2poi": "CoNWeT/ngsientity2poi/3.1.2",
         "panel": "CoNWeT/panel/1.1.0",
         "pie-chart-generator": "CoNWeT/pie-chart-generator/0.3.3",
+        "scatter-chart-generator": "CoNWeT/scatter-chart-generator/0.1.0",
         "value-list-filter": "CoNWeT/value-list-filter/0.1.1",
-        "basengsimashup": "CoNWeT/basengsimashup/0.1.0"
+        "basengsimashup": "CoNWeT/basengsimashup/0.1.0",
     };
 
 
@@ -59,7 +60,7 @@ window.Widget = (function () {
                         isPattern: true
                     }
                 ];
-                var attributeList = metadata.filteredAttributes;;
+                var attributeList = metadata.filteredAttributes;
                 var options = {
                     flat: false,
                     limit: 50,
@@ -592,9 +593,8 @@ window.Widget = (function () {
                 createHeatmapComponent(workspace.id, sourceOperatorID, mapWidgetID).then(createNextComponent);
             } else if (type === "Variable tendency") {
                 createTendencyComponent(workspace.id, sourceOperatorID, mapWidgetID, tabID, component.variableSelector1.value, component.variableSelector2.value, component.sourceSelector.value).then(createNextComponent);
-            } else {
-                // TODO: missing "Scatter chart" type and createScatterComponent function
-                createNextComponent();
+            } else if (type === "Scatter chart") {
+                createScatterComponent(workspace.id, sourceOperatorID, mapWidgetID, tabID, component.variableSelector1.value, component.variableSelector2.value, component.sourceSelector.value).then(createNextComponent);
             }
         };
 
@@ -720,6 +720,114 @@ window.Widget = (function () {
                     return createOperator(identifiers, dashboardID, componentVersions["calculate-tendency"]);
                 }).then(function () {
                     return createWidget(identifiers, dashboardID, tabID, componentVersions.panel, panelConfig);
+                }).then(function () {
+                    createComponentConnections(identifiers);
+                });
+        });
+    };
+
+    var createScatterComponent = function createScatterComponent(dashboardID, sourceOperatorID, mapWidgetID, tabID, variableX, variableY, source) {
+        return new Promise(function (fulfill, reject) {
+            // Create wirecloud components
+            var filterByX, filterByY;
+            if (source === "All") {
+                filterByX = variableX;
+                filterByY = variableY;
+            } else {
+                filterByX = "data." + variableX;
+                filterByY = "data." + variableY;
+            }
+            var prop_nameX = {
+                hidden: false,
+                readonly: false,
+                value: filterByX
+            };
+            var prop_nameY = {
+                hidden: false,
+                readonly: false,
+                value: filterByY
+            };
+            var scatterProperties = {
+                "title": {hidden: false, readonly: false, value: "Scatter chart"},
+                "x-axis-label": {hidden: false, readonly: false, value: variableX},
+                "y-axis-label": {hidden: false, readonly: false, value: variableY}
+            };
+            var highchartsConfig = {
+                title: "Scatter chart",
+                width: 5,
+                height: 18,
+                // top: 0,
+                // left: 10
+            };
+            var identifiers = [];
+            var createComponentConnections = function createComponentConnections(values) {
+                // Connect the wirecloud component
+                var sourceEndpoint, targetEndpoint;
+                // Connect source to filter operator X
+                if (source === "All") {
+                    sourceEndpoint = {
+                        id: sourceOperatorID,
+                        type: "operator",
+                        endpoint: "plain"
+                    };
+                } else {
+                    sourceEndpoint = {
+                        id: mapWidgetID,
+                        type: "widget",
+                        endpoint: "poiListOutput"
+                    };
+                }
+                targetEndpoint = {
+                    id: values[0],
+                    type: "operator",
+                    endpoint: "indata"
+                };
+                createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                    // Connect source to filter operator Y
+                    targetEndpoint.id = values[1];
+                    createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                        // Connect FilterX to scatter-generator-operator
+                        sourceEndpoint = {
+                            id: values[0],
+                            type: "operator",
+                            endpoint: "outdata"
+                        };
+                        targetEndpoint = {
+                            id: values[2],
+                            type: "operator",
+                            endpoint: "x-data-serie"
+                        };
+                        createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                            // Connect FilterY to scatter-generator-operator
+                            sourceEndpoint.id = values[1];
+                            targetEndpoint.endpoint = "y-data-serie";
+                            createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                                // Connect scatter-generator-operator to Highcharts widget
+                                sourceEndpoint = {
+                                    id: values[2],
+                                    type: "operator",
+                                    endpoint: "chart-options"
+                                };
+                                targetEndpoint = {
+                                    id: values[3],
+                                    type: "widget",
+                                    endpoint: "highcharts"
+                                };
+                                createConnection(dashboardID, sourceEndpoint, targetEndpoint).then(function () {
+                                    fulfill(true);
+                                });
+                            });
+                        });
+                    });
+                });
+            };
+            createOperator(identifiers, dashboardID, componentVersions["value-list-filter"], {prop_name: prop_nameX})
+                .then(function () {
+                    return createOperator(identifiers, dashboardID, componentVersions["value-list-filter"], {prop_name: prop_nameY});
+                }).then(function () {
+                    return createOperator(identifiers, dashboardID, componentVersions["scatter-chart-generator"], scatterProperties);
+                }).then(function () {
+                    return createWidget(identifiers, dashboardID, tabID, componentVersions.highcharts, highchartsConfig);
                 }).then(function () {
                     createComponentConnections(identifiers);
                 });
