@@ -35,6 +35,7 @@ window.Widget = (function () {
         "scatter-chart-generator": "CoNWeT/scatter-chart-generator/0.1.0",
         "value-list-filter": "CoNWeT/value-list-filter/0.1.1",
         "basengsimashup": "CoNWeT/basengsimashup/0.1.0",
+        "ol3-map": "CoNWeT/ol3-map/1.1.3",
     };
 
 
@@ -324,7 +325,7 @@ window.Widget = (function () {
         var typeTitle = new StyledElements.Fragment("<h4> Component type </h4>");
         // TODO: add more types
         // TODO: enable heatmap option only when available
-        component.typeSelector = new StyledElements.Select({initialEntries: ["Variable tendency", "Scatter chart", "Pie chart", "Column chart", "Heatmap"], initialValue: "Variable tendency"});
+        component.typeSelector = new StyledElements.Select({initialEntries: ["Variable tendency", "Scatter chart", "Pie chart", "Column chart"], initialValue: "Variable tendency"});
         component.typeSelector.addEventListener("change", componentTypeHandler.bind(component));
         div.appendChild(typeDiv);
         typeTitle.insertInto(typeDiv);
@@ -477,9 +478,7 @@ window.Widget = (function () {
 
     // Create the new dashboard
     var createDashboard = function createDashboard() {
-        // TODO: handle empty name
         var name = this.nameField.value;
-        // TODO: remove the basengsimashup and use an empty one injecting the leaflet map
         createWorkspace(name, null, {}).then(
             configureDashboard.bind(this),
             function () {
@@ -500,7 +499,7 @@ window.Widget = (function () {
         var componentList = this.components;
 
         // Create initial dashboard dinamically
-        // NGSI-source-operator + FIWARE-data-model2poi-operator + Leaflet-map-widtet[insert/update POIs]
+        // NGSI-source-operator + FIWARE-data-model2poi-operator + ol3-map-widget[insert/update POIs]
         var createInitialComponents = function createInitialComponents() {
             return new Promise(function (fulfill, reject) {
                 // Helper sub-sub-functions
@@ -509,7 +508,7 @@ window.Widget = (function () {
                     mapWidgetID = identifiers[2];
                     sourceOperatorID = identifiers[0];
                     // Connect ngsi-source[entityOutput] with ngsi-datamodel2poi[entityInput]
-                    // Connect ngsi-datamodel2poi[poiOutput] --> leaflet-map[poiInput]
+                    // Connect ngsi-datamodel2poi[poiOutput] --> ol3-map[poiInput]
                     var sourceEndpoint = {
                         id: identifiers[0],
                         type: "operator", // NGSI-source-operator ID
@@ -521,7 +520,6 @@ window.Widget = (function () {
                         endpoint: "entityInput"
                     };
                     createConnection(workspace.id, sourceEndpoint, targetEndpoint).then(function () {
-                        // Connect heatmap output to the map widget
                         var sourceEndpoint = {
                             id: identifiers[1], // ngsi-datamodel2poi operator ID
                             type: "operator",
@@ -594,14 +592,14 @@ window.Widget = (function () {
                 var mapPreferences = {
                     initialCenter: mapData.longAvg + "," + mapData.latAvg,
                     initialZoom: 15 - Math.round(Math.log2(Math.max(mapData.verticalDistance,mapData.horizontalDistance)),1),
-                    maxzoom: "18",
-                    minzoom: "4"
+                    // maxzoom: "18", // Not supported on ol3-map
+                    // minzoom: "4"   // Not supported on ol3-map
                 };
                 createOperator(identifiers, workspace.id, componentVersions["ngsi-source"],initialConfig)
                     .then(function () {
                         return createOperator(identifiers, workspace.id, componentVersions["ngsi-datamodel2poi"]);
                     }).then(function () {
-                        return createWidget(identifiers, workspace.id, tabID, componentVersions["leaflet-map"], mapConfig);
+                        return createWidget(identifiers, workspace.id, tabID, componentVersions["ol3-map"], mapConfig);
                     }).then(function () {
                         return addWidgetPreferences(workspace.id, tabID, identifiers[2], mapPreferences);
                     }).then(function () {
